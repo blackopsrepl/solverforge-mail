@@ -1,0 +1,78 @@
+use ratatui::prelude::*;
+use ratatui::widgets::{Block, Borders, List, ListItem, ListState};
+
+use crate::app::App;
+use crate::keys::View;
+use crate::theme::theme;
+
+/// Nerd Font icon for well-known folder names.
+fn folder_icon(name: &str) -> &'static str {
+    match name.to_lowercase().as_str() {
+        "inbox" => "󰇰 ",
+        "sent" | "sent messages" | "sent mail" => "󰑊 ",
+        "drafts" | "draft" => "󰙏 ",
+        "trash" | "deleted" | "deleted messages" => "󰆴 ",
+        "archive" | "archives" | "all mail" | "all" => "󰎞 ",
+        "spam" | "junk" | "bulk mail" => "󰛃 ",
+        "starred" | "flagged" => "󰓎 ",
+        _ => "󰉋 ",
+    }
+}
+
+pub fn render(app: &App, frame: &mut Frame, area: Rect) {
+    let t = theme();
+    let focused = app.view == View::FolderList;
+
+    let border_style = if focused {
+        t.border_focused()
+    } else {
+        t.border()
+    };
+
+    let block = Block::default()
+        .title(" Folders ")
+        .title_style(if focused {
+            t.accent_style().add_modifier(Modifier::BOLD)
+        } else {
+            t.dimmed()
+        })
+        .borders(Borders::ALL)
+        .border_style(border_style);
+
+    let items: Vec<ListItem> = app
+        .folders
+        .iter()
+        .enumerate()
+        .map(|(i, folder)| {
+            let icon = folder_icon(&folder.name);
+            let content = format!("{icon}{}", folder.name);
+            let style = if folder.name == app.current_folder {
+                if focused && i == app.folder_index {
+                    t.folder_active()
+                } else {
+                    t.accent_style().add_modifier(Modifier::BOLD)
+                }
+            } else if focused && i == app.folder_index {
+                t.selected()
+            } else {
+                t.folder_inactive()
+            };
+            ListItem::new(content).style(style)
+        })
+        .collect();
+
+    let mut state = ListState::default();
+    if focused {
+        state.select(Some(app.folder_index));
+    } else {
+        // Highlight the active folder
+        let active = app
+            .folders
+            .iter()
+            .position(|f| f.name == app.current_folder);
+        state.select(active);
+    }
+
+    let list = List::new(items).block(block);
+    frame.render_stateful_widget(list, area, &mut state);
+}

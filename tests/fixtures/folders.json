@@ -1,0 +1,22 @@
+[
+  {
+    "name": "INBOX",
+    "desc": "Main inbox"
+  },
+  {
+    "name": "Sent",
+    "desc": "Sent messages"
+  },
+  {
+    "name": "Drafts",
+    "desc": "Draft messages"
+  },
+  {
+    "name": "Trash",
+    "desc": "Deleted messages"
+  },
+  {
+    "name": "Archive",
+    "desc": null
+  }
+]

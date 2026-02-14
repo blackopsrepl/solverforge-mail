@@ -1,0 +1,37 @@
+[
+  {
+    "id": "1",
+    "flags": ["Seen", "Answered"],
+    "subject": "Re: Project update",
+    "from": "alice@example.com",
+    "date": "2026-02-14 10:30:00+00:00"
+  },
+  {
+    "id": "2",
+    "flags": ["Flagged"],
+    "subject": "URGENT: Deploy by EOD",
+    "from": "bob@corp.io",
+    "date": "2026-02-14 09:15:00+00:00"
+  },
+  {
+    "id": "3",
+    "flags": [],
+    "subject": "Weekly newsletter #42",
+    "from": "news@letter.co",
+    "date": "2026-02-13 18:00:00+00:00"
+  },
+  {
+    "id": "4",
+    "flags": ["Seen"],
+    "subject": "Meeting notes from Tuesday",
+    "from": "carol@team.dev",
+    "date": "2026-02-12 14:22:00+00:00"
+  },
+  {
+    "id": "5",
+    "flags": ["Seen", "Flagged"],
+    "subject": "Invoice #1337",
+    "from": "billing@vendor.com",
+    "date": "2026-02-11 08:00:00+00:00"
+  }
+]

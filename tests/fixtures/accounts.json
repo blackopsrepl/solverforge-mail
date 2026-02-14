@@ -1,0 +1,17 @@
+[
+  {
+    "name": "personal",
+    "backend": "imap",
+    "default": true
+  },
+  {
+    "name": "work",
+    "backend": "imap",
+    "default": false
+  },
+  {
+    "name": "archive",
+    "backend": "maildir",
+    "default": false
+  }
+]

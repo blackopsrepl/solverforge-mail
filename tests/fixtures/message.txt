@@ -1,0 +1,22 @@
+From: alice@example.com
+To: bob@example.com
+Cc: team@example.com
+Subject: Re: Project update
+Date: 2026-02-14 10:30:00+00:00
+
+Hey,
+
+Just wanted to share the latest progress on the project.
+
+> What's the timeline looking like?
+
+We're on track for the February milestone. The key deliverables:
+
+1. TUI email client wrapping himalaya
+2. Theme integration with SolverForge colors
+3. Full keyboard navigation
+
+Let me know if you have any questions.
+
+Best,
+Alice
