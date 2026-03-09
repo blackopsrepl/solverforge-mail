@@ -1,6 +1,6 @@
 /* SQLite database layer.
-   The database is stored at `~/.local/share/solverforge/mail.db`.
-   Schema is forward-only: each version adds tables/columns, never removes them. */
+The database is stored at `~/.local/share/solverforge/mail.db`.
+Schema is forward-only: each version adds tables/columns, never removes them. */
 
 use std::path::PathBuf;
 

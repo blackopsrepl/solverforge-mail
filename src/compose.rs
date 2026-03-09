@@ -1,10 +1,10 @@
 /* Compose editor state: template parsing, reassembly, and field management.
-   The compose flow:
-   1. Fetch a template from `himalaya template write/reply/forward`
-   2. Parse into header fields + body
-   3. Edit in the TUI (edtui for body, single-line inputs for headers)
-   4. Reassemble into a template string
-   5. Send via `himalaya template send` */
+The compose flow:
+1. Fetch a template from `himalaya template write/reply/forward`
+2. Parse into header fields + body
+3. Edit in the TUI (edtui for body, single-line inputs for headers)
+4. Reassemble into a template string
+5. Send via `himalaya template send` */
 
 use edtui::{EditorState, Lines};
 

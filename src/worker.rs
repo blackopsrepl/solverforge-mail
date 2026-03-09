@@ -27,6 +27,12 @@ pub struct Worker {
     rx: mpsc::Receiver<WorkerResult>,
 }
 
+impl Default for Worker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Worker {
     pub fn new() -> Self {
         let (tx, rx) = mpsc::channel();

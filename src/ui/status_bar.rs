@@ -22,7 +22,7 @@ pub fn render(app: &App, frame: &mut Frame, area: Rect) {
             spans.push(Span::styled("  ", t.status_bar()));
         }
         spans.push(Span::styled(format!(" {key} "), t.status_key()));
-        spans.push(Span::styled(format!("{desc}"), t.status_desc()));
+        spans.push(Span::styled(desc.to_string(), t.status_desc()));
     }
 
     // Add status message or spinner on the right

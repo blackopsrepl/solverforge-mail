@@ -81,6 +81,12 @@ pub struct ContactEditState {
     pub error: Option<String>,
 }
 
+impl Default for ContactEditState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ContactEditState {
     /// Create a blank form for a new contact.
     pub fn new() -> Self {

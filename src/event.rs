@@ -37,10 +37,10 @@ impl EventHandler {
                 match event::read() {
                     Ok(CrosstermEvent::Key(key)) => {
                         // Only forward key-down presses (ignore release / repeat).
-                        if key.kind == KeyEventKind::Press {
-                            if event_tx.send(Event::Key(key)).is_err() {
-                                return;
-                            }
+                        if key.kind == KeyEventKind::Press
+                            && event_tx.send(Event::Key(key)).is_err()
+                        {
+                            return;
                         }
                     }
                     Ok(CrosstermEvent::Mouse(mouse)) => {

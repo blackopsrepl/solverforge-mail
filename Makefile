@@ -64,7 +64,7 @@ release: deps-check ## Build optimized release binary
 	$(BANNER)
 	$(call msg,CARGO,release build)
 	@cargo build --release 2>&1 | sed 's/^/    /'
-	$(call msg,OK,$(BIN) ($(shell du -h $(BIN) 2>/dev/null | cut -f1 || echo '?'))
+	$(call msg,OK,$(BIN))
 
 debug: ## Build debug binary
 	$(call msg,CARGO,debug build)

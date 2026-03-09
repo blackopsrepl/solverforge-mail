@@ -1,6 +1,6 @@
 /* Action bar widget — a row of labelled buttons rendered with ratatui's `Tabs`
-   widget, with a mode pill on the left.
-   Used by the compose, identity-edit and contact-edit screens. */
+widget, with a mode pill on the left.
+Used by the compose, identity-edit and contact-edit screens. */
 
 use ratatui::prelude::*;
 use ratatui::widgets::Tabs;

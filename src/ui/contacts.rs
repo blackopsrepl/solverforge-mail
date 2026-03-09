@@ -1,5 +1,5 @@
 /* Contact browser UI — address book view.
-   Layout: searchable list on the left, detail pane on the right. */
+Layout: searchable list on the left, detail pane on the right. */
 
 use ratatui::prelude::*;
 use ratatui::widgets::*;

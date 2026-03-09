@@ -29,8 +29,8 @@ fn run(args: &[String]) -> Result<String> {
 }
 
 /* Run a himalaya command, writing `input` to the child's stdin.
-   himalaya's `template send` checks `io::stdin().is_terminal()` and reads
-   from stdin when it is not a terminal (i.e. when spawned as a subprocess). */
+himalaya's `template send` checks `io::stdin().is_terminal()` and reads
+from stdin when it is not a terminal (i.e. when spawned as a subprocess). */
 fn run_with_stdin(args: &[String], input: &str) -> Result<String> {
     let bin = himalaya_bin();
     let mut child = Command::new(bin)

@@ -47,10 +47,10 @@ fn strip_ansi(s: &str) -> String {
 }
 
 /* Extract a clean error message from himalaya's verbose error chain.
-   Himalaya outputs numbered error lines like:
-   0: cannot build IMAP client
-   1: cannot authenticate to IMAP server
-   We take the first line (most relevant) and strip the number prefix. */
+Himalaya outputs numbered error lines like:
+0: cannot build IMAP client
+1: cannot authenticate to IMAP server
+We take the first line (most relevant) and strip the number prefix. */
 fn clean_error(raw: &str) -> String {
     let stripped = strip_ansi(raw);
     // Find the "himalaya error:" prefix if present
@@ -640,9 +640,8 @@ impl App {
             }
             MouseEventKind::Down(MouseButton::Right) => {
                 // Right-click to go back
-                match self.view {
-                    View::MessageView => self.go_back(),
-                    _ => {}
+                if self.view == View::MessageView {
+                    self.go_back()
                 }
             }
             _ => {}
@@ -1393,7 +1392,6 @@ impl App {
             let mut handler = EditorEventHandler::default();
             handler.on_key_event(key, &mut cs.body);
             cs.dirty = true;
-            return;
         }
     }
 
@@ -1607,7 +1605,7 @@ impl App {
                 if let Some(ref conn) = self.db {
                     // Insert or update the contact record.
                     let save_result = if contact.id == 0 {
-                        crate::contacts::add(conn, &contact).map(|id| id)
+                        crate::contacts::add(conn, &contact)
                     } else {
                         crate::contacts::update(conn, &contact).map(|_| contact.id)
                     };
