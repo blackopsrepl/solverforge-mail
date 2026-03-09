@@ -1,4 +1,4 @@
-//! Contact add/edit form state.
+/* Contact add/edit form state. */
 
 use crate::contacts::Contact;
 

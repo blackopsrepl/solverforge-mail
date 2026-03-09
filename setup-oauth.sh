@@ -1,32 +1,55 @@
 #!/bin/bash
 # Setup OAuth for Gmail/Outlook accounts
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/setup-common.sh"
+
 echo "OAuth Setup for Gmail/Outlook"
 echo "=============================="
 echo ""
 echo "These accounts use OAuth2 which requires a browser-based authentication flow."
 echo ""
-echo "To fix Gmail accounts (gmail, kgmail):"
-echo "  1. Run: himalaya account configure gmail"
-echo "  2. Follow the browser flow to authenticate"
-echo "  3. Repeat for kgmail if needed"
-echo ""
-echo "To fix Outlook account:"
-echo "  1. Run: himalaya account configure outlook"
-echo "  2. Follow the browser flow to authenticate"
-echo ""
-echo "The himalaya OAuth wizard will:"
-echo "- Open your browser for authentication"
-echo "- Store tokens in the keyring automatically"
-echo "- Test the connection"
-echo ""
-echo "Press Enter to continue with gmail setup, or Ctrl+C to cancel..."
-read
+echo "Configured accounts that may use OAuth:"
 
-echo "Starting OAuth setup for gmail..."
-/opt/himalaya/target/release/himalaya account configure gmail
+# List accounts from himalaya and let the user pick
+readarray -t accounts < <($HIMALAYA -o json account list 2>/dev/null | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for acc in data:
+        name = acc.get('name', '')
+        if name:
+            print(name)
+except:
+    pass
+" 2>/dev/null)
+
+if [ ${#accounts[@]} -eq 0 ]; then
+    echo "  (could not detect accounts — enter name manually)"
+    echo ""
+    read -rp "Account name to configure: " account
+    if [ -n "$account" ]; then
+        echo "Starting OAuth setup for $account..."
+        $HIMALAYA account configure "$account"
+    fi
+else
+    for i in "${!accounts[@]}"; do
+        printf "  %d) %s\n" $((i+1)) "${accounts[$i]}"
+    done
+    echo ""
+    read -rp "Account number to configure (or 'q' to quit): " choice
+
+    if [ "$choice" != "q" ] && [ -n "$choice" ]; then
+        idx=$((choice - 1))
+        if [ $idx -ge 0 ] && [ $idx -lt ${#accounts[@]} ]; then
+            account="${accounts[$idx]}"
+            echo "Starting OAuth setup for $account..."
+            $HIMALAYA account configure "$account"
+        else
+            echo "Invalid choice."
+        fi
+    fi
+fi
 
 echo ""
-echo "To set up other OAuth accounts, run:"
-echo "  himalaya account configure kgmail"
-echo "  himalaya account configure outlook"
+echo "To set up other accounts, run this script again."

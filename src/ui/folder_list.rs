@@ -5,7 +5,7 @@ use crate::app::App;
 use crate::keys::View;
 use crate::theme::theme;
 
-/// Nerd Font icon for well-known folder names.
+// Nerd Font icon for well-known folder names.
 fn folder_icon(name: &str) -> &'static str {
     match name.to_lowercase().as_str() {
         "inbox" => "󰇰 ",

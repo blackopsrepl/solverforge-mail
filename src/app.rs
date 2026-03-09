@@ -16,13 +16,13 @@ use crate::keys::EditMode;
 use crate::keys::{self, Action, View};
 use crate::worker::{Worker, WorkerResult};
 
-/// Page size for envelope listing.
+// Page size for envelope listing.
 const PAGE_SIZE: usize = 50;
 
-/// Auto-refresh interval in ticks (250ms each). 240 ticks = 60 seconds.
+// Auto-refresh interval in ticks (250ms each). 240 ticks = 60 seconds.
 const AUTO_REFRESH_TICKS: u64 = 240;
 
-/// Strip ANSI escape sequences from a string (himalaya stderr has colors).
+// Strip ANSI escape sequences from a string (himalaya stderr has colors).
 fn strip_ansi(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut chars = s.chars().peekable();
@@ -46,11 +46,11 @@ fn strip_ansi(s: &str) -> String {
     out
 }
 
-/// Extract a clean error message from himalaya's verbose error chain.
-/// Himalaya outputs numbered error lines like:
-///   0: cannot build IMAP client
-///   1: cannot authenticate to IMAP server
-/// We take the first line (most relevant) and strip the number prefix.
+/* Extract a clean error message from himalaya's verbose error chain.
+   Himalaya outputs numbered error lines like:
+   0: cannot build IMAP client
+   1: cannot authenticate to IMAP server
+   We take the first line (most relevant) and strip the number prefix. */
 fn clean_error(raw: &str) -> String {
     let stripped = strip_ansi(raw);
     // Find the "himalaya error:" prefix if present

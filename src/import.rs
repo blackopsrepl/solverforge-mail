@@ -1,4 +1,4 @@
-//! Contact import: vCard (.vcf) and CSV (Google Contacts / generic).
+/* Contact import: vCard (.vcf) and CSV (Google Contacts / generic). */
 
 use anyhow::{Context, Result};
 use rusqlite::Connection;

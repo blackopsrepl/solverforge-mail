@@ -88,7 +88,7 @@ pub fn render(app: &mut App, frame: &mut Frame, area: Rect) {
     frame.render_stateful_widget(table, area, &mut app.envelope_state);
 }
 
-/// Truncate a string to `max` characters, appending \u{2026} if needed.
+// Truncate a string to `max` characters, appending \u{2026} if needed.
 fn truncate(s: &str, max: usize) -> String {
     if s.chars().count() <= max {
         s.to_string()
@@ -99,8 +99,8 @@ fn truncate(s: &str, max: usize) -> String {
     }
 }
 
-/// Parse a himalaya date string into a chrono DateTime<Local>.
-/// Himalaya outputs dates like "2026-02-14 10:30:00+00:00".
+/* Parse a himalaya date string into a chrono DateTime<Local>.
+   Himalaya outputs dates like "2026-02-14 10:30:00+00:00". */
 fn parse_date(date: &str) -> Option<DateTime<Local>> {
     // Try RFC 3339 / ISO 8601 with timezone offset
     if let Ok(dt) = DateTime::parse_from_str(date, "%Y-%m-%d %H:%M:%S%:z") {

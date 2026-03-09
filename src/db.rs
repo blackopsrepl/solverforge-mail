@@ -1,7 +1,6 @@
-//! SQLite database layer.
-//!
-//! The database is stored at `~/.local/share/solverforge/mail.db`.
-//! Schema is forward-only: each version adds tables/columns, never removes them.
+/* SQLite database layer.
+   The database is stored at `~/.local/share/solverforge/mail.db`.
+   Schema is forward-only: each version adds tables/columns, never removes them. */
 
 use std::path::PathBuf;
 
@@ -94,7 +93,7 @@ fn set_version(conn: &Connection, version: u32) -> Result<()> {
     Ok(())
 }
 
-/// v1: credentials + contacts tables.
+// v1: credentials + contacts tables.
 fn migrate_v1(conn: &Connection) -> Result<()> {
     conn.execute_batch(
         "-- Credentials store.
@@ -137,7 +136,7 @@ fn migrate_v1(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// v2: sender identities (From addresses per account).
+// v2: sender identities (From addresses per account).
 fn migrate_v2(conn: &Connection) -> Result<()> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS identities (
@@ -155,7 +154,7 @@ fn migrate_v2(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// v3: add `name` column to identities (separate identity label from sender display name).
+// v3: add `name` column to identities (separate identity label from sender display name).
 fn migrate_v3(conn: &Connection) -> Result<()> {
     conn.execute_batch("ALTER TABLE identities ADD COLUMN name TEXT;")?;
     Ok(())

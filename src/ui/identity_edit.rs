@@ -1,4 +1,4 @@
-//! Identity add/edit form UI.
+/* Identity add/edit form UI. */
 
 use ratatui::prelude::*;
 use ratatui::widgets::*;

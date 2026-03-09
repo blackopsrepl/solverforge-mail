@@ -1,22 +1,19 @@
-//! Compose editor UI — the spiffy TUI email compose screen.
-//!
-//! Layout:
-//! ```text
-//! ┌─────────────────────────────────────────────────────┐
-//! │  ✉ Compose · new                        [account]  │  header bar
-//! ├───────────────────────────────────────────────────  │
-//! │ To:      │ <input field>                            │
-//! │ Cc:      │ <input field>                            │
-//! │ Bcc:     │ <input field>                            │
-//! │ Subject: │ <input field>                            │
-//! ├──────────────────────────────────────────────────── │
-//! │                                                      │  edtui body
-//! │   (vim-powered editing zone)                         │
-//! │                                                      │
-//! ├─────────────────────────────────────────────────────│
-//! │ -- NORMAL --    Ctrl+p: Send  Tab: next field   │  status bar
-//! └─────────────────────────────────────────────────────┘
-//! ```
+/* Compose editor UI — the spiffy TUI email compose screen.
+   Layout:
+   ┌─────────────────────────────────────────────────────┐
+   │  ✉ Compose · new                        [account]  │  header bar
+   ├───────────────────────────────────────────────────  │
+   │ To:      │ <input field>                            │
+   │ Cc:      │ <input field>                            │
+   │ Bcc:     │ <input field>                            │
+   │ Subject: │ <input field>                            │
+   ├──────────────────────────────────────────────────── │
+   │                                                      │  edtui body
+   │   (vim-powered editing zone)                         │
+   │                                                      │
+   ├─────────────────────────────────────────────────────│
+   │ -- NORMAL --    Ctrl+p: Send  Tab: next field   │  status bar
+   └─────────────────────────────────────────────────────┘ */
 
 use edtui::{EditorTheme, EditorView};
 use ratatui::prelude::*;

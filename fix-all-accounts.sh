@@ -1,84 +1,93 @@
 #!/bin/bash
-# Fix all email accounts - store passwords in KWallet
+# Fix all email accounts - store passwords in keyring and configure OAuth
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/setup-common.sh"
+
 echo "╔════════════════════════════════════════════╗"
-echo "║     Fixing All Email Accounts               ║"
+echo "║     Fixing All Email Accounts              ║"
 echo "╚════════════════════════════════════════════╝"
 echo ""
 
-# 1. BLINKENSHELL
-echo "1. BLINKENSHELL ACCOUNT"
-echo "Enter your blinkenshell.org password:"
-read -s BLINK_PASS
-echo ""
-echo -n "$BLINK_PASS" | secret-tool store --label="Blinkenshell IMAP" service blinkenshell-imap
-echo -n "$BLINK_PASS" | secret-tool store --label="Blinkenshell SMTP" service blinkenshell-smtp
-echo "✓ Blinkenshell password stored"
+# Detect configured accounts
+readarray -t accounts < <($HIMALAYA -o json account list 2>/dev/null | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for acc in data:
+        name = acc.get('name', '')
+        if name:
+            print(name)
+except:
+    pass
+" 2>/dev/null)
 
-# Test blinkenshell
-echo "Testing blinkenshell..."
-if /opt/himalaya/target/release/himalaya -o json folder list -a blinkenshell >/dev/null 2>&1; then
-    echo "✓ Blinkenshell is working!"
-else
-    echo "✗ Blinkenshell auth failed - check password"
-fi
-echo ""
-
-# 2. ICLOUD
-echo "2. ICLOUD ACCOUNT" 
-echo "You need an app-specific password from https://appleid.apple.com"
-echo "Enter your iCloud app-specific password (format: xxxx-xxxx-xxxx-xxxx):"
-read -s ICLOUD_PASS
-echo ""
-# Remove spaces/dashes if entered
-ICLOUD_PASS=$(echo "$ICLOUD_PASS" | tr -d ' -')
-echo -n "$ICLOUD_PASS" | secret-tool store --label="iCloud IMAP" service icloud-imap
-echo -n "$ICLOUD_PASS" | secret-tool store --label="iCloud SMTP" service icloud-smtp
-echo "✓ iCloud password stored"
-
-# Test iCloud
-echo "Testing iCloud..."
-if /opt/himalaya/target/release/himalaya -o json folder list -a icloud >/dev/null 2>&1; then
-    echo "✓ iCloud is working!"
-else
-    echo "✗ iCloud auth failed - ensure you're using an app-specific password"
-fi
-echo ""
-
-# 3. OAuth accounts
-echo "3. OAUTH ACCOUNTS (Gmail, Outlook)"
-echo "These require browser authentication."
-echo ""
-
-echo "Fix Gmail accounts? (y/n): "
-read -n1 FIX_GMAIL
-echo ""
-if [ "$FIX_GMAIL" = "y" ]; then
-    echo "Setting up gmail (vmeilichios@gmail.com)..."
-    /opt/himalaya/target/release/himalaya account configure gmail || true
-    
-    echo "Setting up kgmail (blackopsrepl@gmail.com)..."
-    /opt/himalaya/target/release/himalaya account configure kgmail || true
+if [ ${#accounts[@]} -eq 0 ]; then
+    echo "No accounts found in himalaya config."
+    exit 1
 fi
 
-echo "Fix Outlook account? (y/n): "
-read -n1 FIX_OUTLOOK
+# Show current status
+echo "Current status:"
+for acct in "${accounts[@]}"; do
+    printf "  %-15s: " "$acct"
+    if $HIMALAYA -o json folder list -a "$acct" >/dev/null 2>&1; then
+        echo "✓ Working"
+    else
+        echo "✗ Not working"
+    fi
+done
 echo ""
-if [ "$FIX_OUTLOOK" = "y" ]; then
-    echo "Setting up outlook..."
-    /opt/himalaya/target/release/himalaya account configure outlook || true
-fi
 
-echo ""
+# Fix each non-working account
+for acct in "${accounts[@]}"; do
+    if $HIMALAYA -o json folder list -a "$acct" >/dev/null 2>&1; then
+        continue
+    fi
+
+    echo "────────────────────────────────────────"
+    echo "Fix account: $acct"
+    echo ""
+    echo "How should this account authenticate?"
+    echo "  1) Password (IMAP/SMTP)"
+    echo "  2) OAuth (browser flow)"
+    echo "  3) Skip"
+    read -rp "Choice [1-3]: " auth_choice
+
+    case $auth_choice in
+        1)
+            read -rp "Enter password for $acct: " -s pass
+            echo
+            echo -n "$pass" | secret-tool store --label="$acct IMAP" service "${acct}-imap"
+            echo -n "$pass" | secret-tool store --label="$acct SMTP" service "${acct}-smtp"
+            echo "✓ Password stored for $acct"
+
+            if $HIMALAYA -o json folder list -a "$acct" >/dev/null 2>&1; then
+                echo "✓ $acct is working!"
+            else
+                echo "✗ $acct auth failed - check password"
+            fi
+            ;;
+        2)
+            echo "Starting OAuth setup for $acct..."
+            $HIMALAYA account configure "$acct" || true
+            ;;
+        3)
+            echo "Skipping $acct"
+            ;;
+    esac
+    echo ""
+done
+
 echo "═══════════════════════════════════════════════"
 echo "ACCOUNT STATUS:"
 echo "═══════════════════════════════════════════════"
 
-for acct in icloud blinkenshell gmail kgmail outlook test; do
-    printf "%-15s: " "$acct"
-    if /opt/himalaya/target/release/himalaya -o json folder list -a $acct >/dev/null 2>&1; then
+for acct in "${accounts[@]}"; do
+    printf "  %-15s: " "$acct"
+    if $HIMALAYA -o json folder list -a "$acct" >/dev/null 2>&1; then
         echo "✓ Working"
     else
         echo "✗ Not working"
@@ -86,4 +95,4 @@ for acct in icloud blinkenshell gmail kgmail outlook test; do
 done
 
 echo ""
-echo "Launch SolverForge Mail: /srv/lab/hack/solverforge-mail/solverforge-mail"
+echo "Launch SolverForge Mail: $SCRIPT_DIR/target/release/solverforge-mail"

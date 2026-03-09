@@ -1,4 +1,4 @@
-//! Contact add/edit form UI.
+/* Contact add/edit form UI. */
 
 use ratatui::prelude::*;
 use ratatui::widgets::*;

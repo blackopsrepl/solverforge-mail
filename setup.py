@@ -1,12 +1,28 @@
 #!/usr/bin/env python3
-"""Set up email account passwords in KWallet"""
+"""Set up email account passwords in keyring"""
 
 import subprocess
 import getpass
+import json
+import shutil
 import sys
+import os
+
+
+def find_himalaya():
+    """Find himalaya binary (mirrors src/himalaya/config.rs lookup)."""
+    for name in ("solverforge-himalaya", "himalaya"):
+        path = shutil.which(name)
+        if path:
+            return path
+    fallback = "/opt/himalaya/target/release/himalaya"
+    if os.path.isfile(fallback) and os.access(fallback, os.X_OK):
+        return fallback
+    return None
+
 
 def store_password(service, password):
-    """Store password in KWallet using secret-tool"""
+    """Store password in keyring using secret-tool"""
     try:
         proc = subprocess.Popen(
             ['secret-tool', 'store', '--label', service, 'service', service],
@@ -20,84 +36,108 @@ def store_password(service, password):
         print(f"Error storing {service}: {e}")
         return False
 
-def test_account(account):
+
+def test_account(himalaya, account):
     """Test if account can connect"""
     try:
         result = subprocess.run(
-            ['/opt/himalaya/target/release/himalaya', '-o', 'json', 'folder', 'list', '-a', account],
+            [himalaya, '-o', 'json', 'folder', 'list', '-a', account],
             capture_output=True,
             timeout=10
         )
         return result.returncode == 0
-    except:
+    except Exception:
         return False
 
+
+def list_accounts(himalaya):
+    """Get configured account names from himalaya."""
+    try:
+        result = subprocess.run(
+            [himalaya, '-o', 'json', 'account', 'list'],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0:
+            data = json.loads(result.stdout)
+            return [acc['name'] for acc in data if 'name' in acc]
+    except Exception:
+        pass
+    return []
+
+
 def main():
+    himalaya = find_himalaya()
+    if not himalaya:
+        print("ERROR: Could not find himalaya binary.")
+        print("Install himalaya or ensure it is on your PATH.")
+        sys.exit(1)
+
     print("╔════════════════════════════════════════════╗")
-    print("║     Email Account Setup                     ║")
+    print("║     Email Account Setup                    ║")
     print("╚════════════════════════════════════════════╝")
     print()
-    
+
+    accounts = list_accounts(himalaya)
+    if not accounts:
+        print("No accounts found in himalaya config.")
+        print("Please configure himalaya first (~/.config/himalaya/config.toml)")
+        sys.exit(1)
+
     # Test current status
     print("Current account status:")
-    accounts = ['icloud', 'blinkenshell', 'gmail', 'kgmail', 'outlook', 'test']
     working = []
     for acc in accounts:
-        status = "✓ Working" if test_account(acc) else "✗ Not working"
+        ok = test_account(himalaya, acc)
+        status = "✓ Working" if ok else "✗ Not working"
         print(f"  {acc:15}: {status}")
-        if test_account(acc):
+        if ok:
             working.append(acc)
-    
+
     if working:
         print(f"\nYou have {len(working)} working account(s): {', '.join(working)}")
-        print("Run: /srv/lab/hack/solverforge-mail/solverforge-mail")
-        
-    print("\nFix accounts? (y/n): ", end='')
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    binary = os.path.join(script_dir, "target", "release", "solverforge-mail")
+    if os.path.isfile(binary):
+        print(f"Run: {binary}")
+
+    print("\nFix accounts? (y/n): ", end='', flush=True)
     if input().lower() != 'y':
         return
-    
-    print("\n1. BLINKENSHELL")
-    print("Enter blinkenshell.org password (hidden): ")
-    blink_pass = getpass.getpass("")
-    if blink_pass:
-        store_password('blinkenshell-imap', blink_pass)
-        store_password('blinkenshell-smtp', blink_pass)
-        if test_account('blinkenshell'):
-            print("✓ Blinkenshell is working!")
-        else:
-            print("✗ Blinkenshell failed - check password")
-    
-    print("\n2. ICLOUD")
-    print("You need an app-specific password from https://appleid.apple.com")
-    print("Go to Sign-In & Security → App-Specific Passwords → Generate")
-    print("Enter iCloud app-specific password (hidden): ")
-    icloud_pass = getpass.getpass("")
-    if icloud_pass:
-        # Clean up the password (remove spaces/dashes)
-        icloud_clean = icloud_pass.replace(' ', '').replace('-', '')
-        store_password('icloud-imap', icloud_clean)
-        store_password('icloud-smtp', icloud_clean)
-        if test_account('icloud'):
-            print("✓ iCloud is working!")
-        else:
-            print("✗ iCloud failed - ensure it's an app-specific password")
-    
-    print("\n3. OAUTH ACCOUNTS")
-    print("Gmail/Outlook require browser authentication.")
-    print("Run these commands in a terminal with browser access:")
-    print("  himalaya account configure gmail")
-    print("  himalaya account configure kgmail")
-    print("  himalaya account configure outlook")
-    
-    print("\n" + "="*50)
-    print("FINAL STATUS:")
-    print("="*50)
+
     for acc in accounts:
-        status = "✓ Working" if test_account(acc) else "✗ Not working"
+        if test_account(himalaya, acc):
+            continue
+
+        print(f"\nAccount: {acc}")
+        print("  1) Set password  2) OAuth (browser)  3) Skip")
+        choice = input("  Choice [1-3]: ").strip()
+
+        if choice == '1':
+            password = getpass.getpass(f"  Password for {acc}: ")
+            if password:
+                store_password(f'{acc}-imap', password)
+                store_password(f'{acc}-smtp', password)
+                if test_account(himalaya, acc):
+                    print(f"  ✓ {acc} is working!")
+                else:
+                    print(f"  ✗ {acc} failed - check password")
+        elif choice == '2':
+            print(f"  Starting OAuth for {acc}...")
+            subprocess.run([himalaya, 'account', 'configure', acc])
+        else:
+            print(f"  Skipping {acc}")
+
+    print("\n" + "=" * 50)
+    print("FINAL STATUS:")
+    print("=" * 50)
+    for acc in accounts:
+        status = "✓ Working" if test_account(himalaya, acc) else "✗ Not working"
         print(f"  {acc:15}: {status}")
-    
-    print("\nRun SolverForge Mail:")
-    print("  /srv/lab/hack/solverforge-mail/solverforge-mail")
+
+    if os.path.isfile(binary):
+        print(f"\nRun SolverForge Mail:\n  {binary}")
+
 
 if __name__ == "__main__":
     main()

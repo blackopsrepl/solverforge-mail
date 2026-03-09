@@ -1,4 +1,4 @@
-//! Identity add/edit form state.
+/* Identity add/edit form state. */
 
 use crate::identities::Identity;
 

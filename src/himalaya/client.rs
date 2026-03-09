@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use super::config::{account_args, global_args, himalaya_bin};
 use super::types::*;
 
-/// Run a himalaya command and return its stdout.
+// Run a himalaya command and return its stdout.
 fn run(args: &[String]) -> Result<String> {
     let bin = himalaya_bin();
     let output = Command::new(bin)
@@ -28,9 +28,9 @@ fn run(args: &[String]) -> Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
-/// Run a himalaya command, writing `input` to the child's stdin.
-/// himalaya's `template send` checks `io::stdin().is_terminal()` and reads
-/// from stdin when it is not a terminal (i.e. when spawned as a subprocess).
+/* Run a himalaya command, writing `input` to the child's stdin.
+   himalaya's `template send` checks `io::stdin().is_terminal()` and reads
+   from stdin when it is not a terminal (i.e. when spawned as a subprocess). */
 fn run_with_stdin(args: &[String], input: &str) -> Result<String> {
     let bin = himalaya_bin();
     let mut child = Command::new(bin)
@@ -67,8 +67,8 @@ fn run_with_stdin(args: &[String], input: &str) -> Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
-/// Build the shell command string for compose/reply/forward operations
-/// that need to shell out to $EDITOR.
+// Build the shell command string for compose/reply/forward operations
+// that need to shell out to $EDITOR.
 fn editor_command(args: &[String]) -> String {
     let bin = himalaya_bin();
     let mut parts = vec![bin.display().to_string()];

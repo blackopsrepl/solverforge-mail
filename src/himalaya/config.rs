@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
-/// Cached path to the himalaya binary.
+// Cached path to the himalaya binary.
 static HIMALAYA_BIN: OnceLock<PathBuf> = OnceLock::new();
 
 /// Locate the himalaya binary, checking several well-known paths.
@@ -25,7 +25,7 @@ pub fn himalaya_bin() -> &'static PathBuf {
     })
 }
 
-/// Simple `which` implementation — search PATH for an executable.
+// Simple `which` implementation — search PATH for an executable.
 fn which(name: &str) -> Result<PathBuf, ()> {
     let path_var = std::env::var("PATH").map_err(|_| ())?;
     for dir in path_var.split(':') {

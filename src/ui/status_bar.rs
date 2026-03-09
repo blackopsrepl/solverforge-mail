@@ -5,7 +5,7 @@ use crate::app::App;
 use crate::keys;
 use crate::theme::theme;
 
-/// Braille spinner frames.
+// Braille spinner frames.
 const SPINNER: &[&str] = &[
     "\u{2801}", "\u{2809}", "\u{2819}", "\u{281b}", "\u{281e}", "\u{2836}", "\u{2834}", "\u{2824}",
 ];

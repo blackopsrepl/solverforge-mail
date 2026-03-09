@@ -1,7 +1,6 @@
-//! Contact management in the encrypted SQLite database.
-//!
-//! Contacts store rich address-book data. Addresses can be added manually,
-//! imported from vCard / CSV, or auto-harvested from sent/received mail.
+/* Contact management in the encrypted SQLite database.
+   Contacts store rich address-book data. Addresses can be added manually,
+   imported from vCard / CSV, or auto-harvested from sent/received mail. */
 
 use anyhow::{Context, Result};
 use rusqlite::Connection;

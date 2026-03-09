@@ -1,4 +1,4 @@
-//! Identity list overlay — shows all identities for the current account.
+/* Identity list overlay — shows all identities for the current account. */
 
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState};

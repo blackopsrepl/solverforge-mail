@@ -1,9 +1,8 @@
-//! Sender identity management.
-//!
-//! An identity is a From address (display name + email) associated with an
-//! account.  Each account can have multiple identities; one may be marked as
-//! the default.  When composing, the user picks which identity to send from;
-//! the selection is written as a `From:` header in the outgoing template.
+/* Sender identity management.
+   An identity is a From address (display name + email) associated with an
+   account.  Each account can have multiple identities; one may be marked as
+   the default.  When composing, the user picks which identity to send from;
+   the selection is written as a `From:` header in the outgoing template. */
 
 use anyhow::{Context, Result};
 use rusqlite::Connection;

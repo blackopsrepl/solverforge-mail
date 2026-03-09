@@ -1,7 +1,6 @@
-//! Credential CRUD operations on the SQLite database.
-//!
-//! Credentials replace the old `secret-tool` / `~/.authinfo.gpg` / OAuth
-//! token files. All secrets live in `mail.db`.
+/* Credential CRUD operations on the SQLite database.
+   Credentials replace the old `secret-tool` / `~/.authinfo.gpg` / OAuth
+   token files. All secrets live in `mail.db`. */
 
 use anyhow::{Context, Result};
 use rusqlite::Connection;
