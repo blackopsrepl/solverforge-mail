@@ -1,6 +1,6 @@
 [package]
 name = "solverforge-mail"
-version = "0.1.0"
+version = "0.1.62"
 edition = "2021"
 description = "A spiffy ratatui TUI email client wrapping himalaya"
 
