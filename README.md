@@ -27,6 +27,12 @@ A spiffy ratatui-based TUI email client that wraps the himalaya CLI.
 - **Multi-account** - Switch with Ctrl+a
 - **Vim keybindings** - j/k navigation, g/G jumps
 - **Smart error handling** - ANSI stripping, clean error messages
+- **Address book** - Contacts with name, email, phone, org, notes, tags
+- **Contact import** - vCard (.vcf) and Google CSV import
+- **Auto-harvest contacts** - Captured from sent/received mail
+- **Sender identities** - Multiple From addresses per account with default
+- **Local SQLite database** - Contacts, identities, credentials stored in `~/.local/share/solverforge/mail.db`
+- **Credential management** - Passwords and OAuth tokens in DB (no keyring dependency)
 
 ## Keybindings
 
@@ -40,13 +46,14 @@ A spiffy ratatui-based TUI email client that wraps the himalaya CLI.
 - `j`/`k` - Navigate up/down
 - `Enter` - Read message
 - `c` - Compose new
-- `r` - Reply (in message view)
 - `d` - Delete
 - `m` - Move to folder
 - `!` - Toggle flag
 - `t` - Toggle threaded view
 - `/` - Search
 - `Tab` - Focus folders
+- `Ctrl+b` - Open contacts
+- `I` - Open identities
 
 ### Message View
 - `j`/`k` - Scroll
@@ -93,9 +100,9 @@ Individual account setup:
 
 ## Stats
 
-- 35 files, 3642 lines of Rust
-- 54 tests, all passing
-- 2.0MB release binary
+- 35 files, 12518 lines of Rust
+- 81 tests, all passing
+- 4.6MB release binary
 - Zero warnings
 
 ## Troubleshooting
