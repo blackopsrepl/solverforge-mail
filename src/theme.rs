@@ -159,6 +159,44 @@ impl Theme {
             .fg(self.color6)
             .add_modifier(Modifier::BOLD)
     }
+
+    // ── Action bar / modal editing ───────────────────────────────────
+
+    /// Unfocused action button in the action bar.
+    pub fn action_btn(&self) -> Style {
+        Style::default().fg(self.color7)
+    }
+
+    /// Focused (selected) action button — inverted with accent.
+    pub fn action_btn_focused(&self) -> Style {
+        Style::default()
+            .fg(self.background)
+            .bg(self.accent)
+            .add_modifier(Modifier::BOLD)
+    }
+
+    /// Disabled action button (Draft / Attach that aren't wired up yet).
+    pub fn action_btn_disabled(&self) -> Style {
+        Style::default()
+            .fg(self.color8)
+            .add_modifier(Modifier::DIM | Modifier::ITALIC)
+    }
+
+    /// Mode pill for Nav mode.
+    pub fn mode_nav(&self) -> Style {
+        Style::default()
+            .fg(self.background)
+            .bg(self.color8)
+            .add_modifier(Modifier::BOLD)
+    }
+
+    /// Mode pill for Insert mode.
+    pub fn mode_insert(&self) -> Style {
+        Style::default()
+            .fg(self.background)
+            .bg(self.color4)
+            .add_modifier(Modifier::BOLD)
+    }
 }
 
 // ── Singleton ───────────────────────────────────────────────────────

@@ -45,7 +45,12 @@ pub fn render(app: &App, frame: &mut Frame, area: Rect) {
         .enumerate()
         .map(|(i, folder)| {
             let icon = folder_icon(&folder.name);
-            let content = format!("{icon}{}", folder.name);
+            let unread = app.folder_unread.get(&folder.name).copied().unwrap_or(0);
+            let content = if unread > 0 {
+                format!("{icon}{} ({})", folder.name, unread)
+            } else {
+                format!("{icon}{}", folder.name)
+            };
             let style = if folder.name == app.current_folder {
                 if focused && i == app.folder_index {
                     t.folder_active()

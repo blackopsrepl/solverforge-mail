@@ -1,0 +1,142 @@
+//! Sender identity management.
+//!
+//! An identity is a From address (display name + email) associated with an
+//! account.  Each account can have multiple identities; one may be marked as
+//! the default.  When composing, the user picks which identity to send from;
+//! the selection is written as a `From:` header in the outgoing template.
+
+use anyhow::{Context, Result};
+use rusqlite::Connection;
+
+/// A sender identity.
+#[derive(Debug, Clone)]
+pub struct Identity {
+    pub id: i64,
+    /// Himalaya account name this identity belongs to.
+    pub account: String,
+    /// Short label to identify this identity in the UI (e.g. "Work", "Personal").
+    /// Distinct from `display_name`: this is never placed in email headers.
+    pub name: Option<String>,
+    /// Optional sender display name shown in the From header (e.g. "Alice Example").
+    pub display_name: Option<String>,
+    /// Email address (e.g. "alice@example.com").
+    pub email: String,
+    /// Whether this is the default identity for the account.
+    pub is_default: bool,
+}
+
+impl Identity {
+    /// Formatted `From:` header value: `"Name" <email>` or `<email>`.
+    /// Uses `display_name` (the sender name), not `name` (the UI label).
+    pub fn formatted(&self) -> String {
+        match &self.display_name {
+            Some(n) if !n.is_empty() => format!("\"{}\" <{}>", n, self.email),
+            _ => self.email.clone(),
+        }
+    }
+
+    /// Short label for UI display: prefers `name`, falls back to `display_name`,
+    /// then just `email`.  Always appends `<email>` when a name is shown.
+    pub fn label(&self) -> String {
+        let shown_name = self
+            .name
+            .as_deref()
+            .filter(|s| !s.is_empty())
+            .or_else(|| self.display_name.as_deref().filter(|s| !s.is_empty()));
+        match shown_name {
+            Some(n) => format!("{} <{}>", n, self.email),
+            None => self.email.clone(),
+        }
+    }
+}
+
+/// Add a new identity for an account.  Returns the new identity's ID.
+/// Fails if (account, email) already exists.
+pub fn add(
+    conn: &Connection,
+    account: &str,
+    name: Option<&str>,
+    display_name: Option<&str>,
+    email: &str,
+    is_default: bool,
+) -> Result<i64> {
+    // If this is the new default, clear any existing default first.
+    if is_default {
+        clear_default(conn, account)?;
+    }
+    conn.execute(
+        "INSERT INTO identities (account, name, display_name, email, is_default)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params![
+            account,
+            name,
+            display_name,
+            email.to_lowercase(),
+            is_default as i32
+        ],
+    )
+    .with_context(|| format!("cannot add identity {email} for account {account}"))?;
+    Ok(conn.last_insert_rowid())
+}
+
+/// List all identities for an account, default first.
+pub fn list_for_account(conn: &Connection, account: &str) -> Result<Vec<Identity>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, account, name, display_name, email, is_default
+         FROM identities
+         WHERE account = ?1
+         ORDER BY is_default DESC, name, display_name, email",
+    )?;
+    let rows = stmt.query_map([account], row_to_identity)?;
+    rows.collect::<rusqlite::Result<Vec<_>>>()
+        .context("cannot list identities")
+}
+
+/// Get the default identity for an account, if any.
+pub fn get_default(conn: &Connection, account: &str) -> Result<Option<Identity>> {
+    let result = conn.query_row(
+        "SELECT id, account, name, display_name, email, is_default
+         FROM identities WHERE account = ?1 AND is_default = 1 LIMIT 1",
+        [account],
+        row_to_identity,
+    );
+    match result {
+        Ok(i) => Ok(Some(i)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e).context("cannot get default identity"),
+    }
+}
+
+/// Delete an identity by ID.
+pub fn delete(conn: &Connection, id: i64) -> Result<()> {
+    conn.execute("DELETE FROM identities WHERE id = ?1", [id])
+        .with_context(|| format!("cannot delete identity id={id}"))?;
+    Ok(())
+}
+
+/// Mark one identity as the default for its account (clears any existing default).
+pub fn set_default(conn: &Connection, account: &str, id: i64) -> Result<()> {
+    clear_default(conn, account)?;
+    conn.execute("UPDATE identities SET is_default = 1 WHERE id = ?1", [id])
+        .with_context(|| format!("cannot set default identity id={id}"))?;
+    Ok(())
+}
+
+fn clear_default(conn: &Connection, account: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE identities SET is_default = 0 WHERE account = ?1",
+        [account],
+    )?;
+    Ok(())
+}
+
+fn row_to_identity(row: &rusqlite::Row<'_>) -> rusqlite::Result<Identity> {
+    Ok(Identity {
+        id: row.get(0)?,
+        account: row.get(1)?,
+        name: row.get(2)?,
+        display_name: row.get(3)?,
+        email: row.get(4)?,
+        is_default: row.get::<_, i32>(5)? != 0,
+    })
+}

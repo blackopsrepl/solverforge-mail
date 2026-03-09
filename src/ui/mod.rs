@@ -1,11 +1,18 @@
 mod account_list;
+pub mod action_bar;
+mod compose;
+mod contact_edit;
+mod contacts;
 mod envelope_list;
 mod folder_list;
 mod help;
+mod identity_edit;
+mod identity_list;
 mod message_view;
 mod move_prompt;
 mod search;
 mod status_bar;
+pub mod util;
 
 use ratatui::prelude::*;
 
@@ -15,6 +22,23 @@ use crate::keys::View;
 /// Main render dispatch — called once per frame.
 pub fn render(app: &mut App, frame: &mut Frame) {
     let area = frame.area();
+    app.last_terminal_height = area.height;
+
+    // ── Full-screen takeover views ───────────────────────────────
+    match app.view {
+        View::Compose => {
+            compose::render(app, frame);
+            return;
+        }
+        View::Contacts | View::ContactSearch => {
+            contacts::render(app, frame);
+            return;
+        }
+        View::ContactEdit | View::IdentityList | View::IdentityEdit => {
+            // Fall through to normal layout; overlay rendered below.
+        }
+        _ => {}
+    }
 
     // Top-level vertical layout: header (1), main body (fill), status bar (1)
     let outer = Layout::vertical([
@@ -30,14 +54,11 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     // ── Main body ───────────────────────────────────────────────
     match app.view {
         View::MessageView => {
-            // Full-width message view (no sidebar)
             message_view::render(app, frame, outer[1]);
         }
         _ => {
-            // Sidebar + envelope list
             let main =
                 Layout::horizontal([Constraint::Length(22), Constraint::Fill(1)]).split(outer[1]);
-
             folder_list::render(app, frame, main[0]);
             envelope_list::render(app, frame, main[1]);
         }
@@ -56,5 +77,14 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     }
     if app.view == View::Help {
         help::render(app, frame);
+    }
+    if app.view == View::ContactEdit {
+        contact_edit::render(app, frame);
+    }
+    if app.view == View::IdentityList {
+        identity_list::render(app, frame);
+    }
+    if app.view == View::IdentityEdit {
+        identity_edit::render(app, frame);
     }
 }

@@ -2,13 +2,15 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use crossterm::event::{self, Event as CrosstermEvent, KeyEvent, KeyEventKind};
+use crossterm::event::{self, Event as CrosstermEvent, KeyEvent, KeyEventKind, MouseEvent};
 
 /// Application-level events fed into the main loop.
 #[derive(Debug)]
 pub enum Event {
     /// A key was pressed (only key-down events).
     Key(KeyEvent),
+    /// A mouse event (click, scroll, etc.).
+    Mouse(MouseEvent),
     /// Terminal was resized.
     Resize(u16, u16),
     /// Periodic tick for animations / loading spinners.
@@ -39,6 +41,11 @@ impl EventHandler {
                             if event_tx.send(Event::Key(key)).is_err() {
                                 return;
                             }
+                        }
+                    }
+                    Ok(CrosstermEvent::Mouse(mouse)) => {
+                        if event_tx.send(Event::Mouse(mouse)).is_err() {
+                            return;
                         }
                     }
                     Ok(CrosstermEvent::Resize(w, h)) => {

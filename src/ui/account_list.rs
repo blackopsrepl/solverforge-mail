@@ -1,6 +1,7 @@
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState};
 
+use super::util::centered_rect;
 use crate::app::App;
 use crate::theme::theme;
 
@@ -41,21 +42,4 @@ pub fn render(app: &App, frame: &mut Frame) {
 
     let list = List::new(items).block(block);
     frame.render_stateful_widget(list, area, &mut state);
-}
-
-/// Create a centered rectangle within `area`.
-fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
-    let popup_layout = Layout::vertical([
-        Constraint::Percentage((100 - percent_y) / 2),
-        Constraint::Percentage(percent_y),
-        Constraint::Percentage((100 - percent_y) / 2),
-    ])
-    .split(area);
-
-    Layout::horizontal([
-        Constraint::Percentage((100 - percent_x) / 2),
-        Constraint::Percentage(percent_x),
-        Constraint::Percentage((100 - percent_x) / 2),
-    ])
-    .split(popup_layout[1])[1]
 }

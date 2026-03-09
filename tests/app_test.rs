@@ -77,3 +77,62 @@ fn app_help_scroll() {
     app.help_scroll = 5;
     assert_eq!(app.help_scroll, 5);
 }
+
+#[test]
+fn tab_to_save_saves_identity_edit_form() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
+    use rusqlite::Connection;
+    use solverforge_mail::identity_edit::{IdentityEditState, IdentityField};
+    use solverforge_mail::keys::View;
+
+    // Set up an in-memory DB with the full schema.
+    let conn = Connection::open_in_memory().unwrap();
+    solverforge_mail::db::migrate_for_test(&conn).unwrap();
+
+    let mut app = App::new(Some("testaccount".to_string()));
+    app.db = Some(conn);
+    app.view = View::IdentityEdit;
+
+    // Pre-fill a valid form.
+    let mut state = IdentityEditState::new("testaccount");
+    state.name = "Work".to_string();
+    state.email = "work@example.com".to_string();
+    app.identity_edit_state = Some(state);
+
+    // Tab through fields to reach the Save button:
+    // Name → SenderName → Email → IsDefault → Save  (4 Tabs)
+    let tab = KeyEvent {
+        code: KeyCode::Tab,
+        modifiers: KeyModifiers::NONE,
+        kind: KeyEventKind::Press,
+        state: KeyEventState::NONE,
+    };
+    for _ in 0..4 {
+        app.handle_key(tab);
+    }
+
+    // Verify focus is now on Save.
+    assert_eq!(
+        app.identity_edit_state.as_ref().unwrap().focused,
+        IdentityField::Save,
+        "focus should be on Save after 4 Tabs"
+    );
+
+    // Press Enter to activate Save.
+    let enter = KeyEvent {
+        code: KeyCode::Enter,
+        modifiers: KeyModifiers::NONE,
+        kind: KeyEventKind::Press,
+        state: KeyEventState::NONE,
+    };
+    app.handle_key(enter);
+
+    // The modal should be gone and we should be back on IdentityList.
+    assert!(
+        app.identity_edit_state.is_none(),
+        "modal should close after save"
+    );
+    assert_eq!(app.view, View::IdentityList);
+    assert_eq!(app.identities.len(), 1);
+    assert_eq!(app.identities[0].email, "work@example.com");
+}

@@ -105,14 +105,3 @@ impl Envelope {
         self.sender.display()
     }
 }
-
-/// Parsed response types from himalaya CLI.
-#[derive(Debug)]
-pub enum HimalayaResponse {
-    Accounts(Vec<Account>),
-    Folders(Vec<Folder>),
-    Envelopes(Vec<Envelope>),
-    MessageBody(String),
-    Success(String),
-    Error(String),
-}

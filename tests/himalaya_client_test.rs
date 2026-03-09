@@ -13,9 +13,10 @@ fn build_envelope_args_basic() {
 #[test]
 fn build_envelope_args_with_account() {
     let args = client::build_envelope_args(Some("work"), "Sent", 2, 25, None);
+    // -a goes AFTER the subcommand verb, not at global level
     assert_eq!(
         args,
-        vec!["-o", "json", "-a", "work", "envelope", "list", "-f", "Sent", "-p", "2", "-s", "25"]
+        vec!["-o", "json", "envelope", "list", "-a", "work", "-f", "Sent", "-p", "2", "-s", "25"]
     );
 }
 
@@ -43,8 +44,9 @@ fn build_read_args_basic() {
 #[test]
 fn build_read_args_with_account() {
     let args = client::build_read_args(Some("personal"), "Drafts", "7");
+    // -a goes AFTER the subcommand verb, not at global level
     assert_eq!(
         args,
-        vec!["-o", "json", "-a", "personal", "message", "read", "-f", "Drafts", "7"]
+        vec!["-o", "json", "message", "read", "-a", "personal", "-f", "Drafts", "7"]
     );
 }

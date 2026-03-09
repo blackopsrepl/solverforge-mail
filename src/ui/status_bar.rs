@@ -35,11 +35,7 @@ pub fn render(app: &App, frame: &mut Frame, area: Rect) {
         String::new()
     };
 
-    let right_style = if app.status_message.starts_with("Failed")
-        || app.status_message.starts_with("Delete failed")
-        || app.status_message.starts_with("Move failed")
-        || app.status_message.starts_with("Error")
-    {
+    let right_style = if app.status_is_error {
         t.error()
     } else if app.loading {
         t.spinner()
@@ -59,8 +55,17 @@ pub fn render_header(app: &App, frame: &mut Frame, area: Rect) {
 
     let account_label = app.account_name.as_deref().unwrap_or("(no account)");
 
+    // New mail indicator
+    let mail_badge = if app.new_mail_count > 0 {
+        format!(" [{}]", app.new_mail_count)
+    } else {
+        String::new()
+    };
+
+    let thread_indicator = if app.threaded { " \u{2637}" } else { "" };
+
     let title = format!(
-        "  \u{f0e0}  SolverForge Mail          {account_label}  \u{2502}  {}  ",
+        "  \u{f0e0}  SolverForge Mail{mail_badge}          {account_label}  \u{2502}  {}{thread_indicator}  ",
         app.current_folder
     );
 

@@ -251,3 +251,112 @@ fn unrecognized_key_returns_none() {
         Action::None
     );
 }
+
+// ── New modal scheme tests (replaces old Ctrl+p/s tests) ─────────────────────
+
+#[test]
+fn tab_cycles_identity_edit_fields() {
+    // Tab advances through fields: Name → SenderName → Email → IsDefault → Save → Cancel → Name
+    assert_eq!(
+        resolve(View::IdentityEdit, key(KeyCode::Tab)),
+        Action::IdentityEditFieldNext
+    );
+    assert_eq!(
+        resolve(View::IdentityEdit, key(KeyCode::BackTab)),
+        Action::IdentityEditFieldPrev
+    );
+}
+
+#[test]
+fn enter_activates_identity_edit_focused_item() {
+    // Enter on any field = IdentityEditToggle (which app.rs routes to save/cancel/next)
+    assert_eq!(
+        resolve(View::IdentityEdit, key(KeyCode::Enter)),
+        Action::IdentityEditToggle
+    );
+}
+
+#[test]
+fn tab_cycles_contact_edit_fields() {
+    assert_eq!(
+        resolve(View::ContactEdit, key(KeyCode::Tab)),
+        Action::ContactEditFieldNext
+    );
+    assert_eq!(
+        resolve(View::ContactEdit, key(KeyCode::BackTab)),
+        Action::ContactEditFieldPrev
+    );
+}
+
+#[test]
+fn enter_activates_contact_edit_focused_item() {
+    // Enter = ContactEditActivate (app.rs checks focused field and dispatches)
+    assert_eq!(
+        resolve(View::ContactEdit, key(KeyCode::Enter)),
+        Action::ContactEditActivate
+    );
+}
+
+#[test]
+fn compose_enter_triggers_enter_insert() {
+    assert_eq!(
+        resolve(View::Compose, key(KeyCode::Enter)),
+        Action::ComposeEnterInsert
+    );
+}
+
+#[test]
+fn compose_esc_triggers_exit_to_nav() {
+    assert_eq!(
+        resolve(View::Compose, key(KeyCode::Esc)),
+        Action::ComposeExitToNav
+    );
+}
+
+#[test]
+fn compose_tab_advances_field() {
+    assert_eq!(
+        resolve(View::Compose, key(KeyCode::Tab)),
+        Action::ComposeFieldNext
+    );
+}
+
+#[test]
+fn compose_j_advances_field() {
+    assert_eq!(
+        resolve(View::Compose, key(KeyCode::Char('j'))),
+        Action::ComposeFieldNext
+    );
+}
+
+#[test]
+fn compose_k_retreats_field() {
+    assert_eq!(
+        resolve(View::Compose, key(KeyCode::Char('k'))),
+        Action::ComposeFieldPrev
+    );
+}
+
+#[test]
+fn ctrl_c_still_discards_compose() {
+    assert_eq!(
+        resolve(View::Compose, ctrl(KeyCode::Char('c'))),
+        Action::ComposeDiscard
+    );
+}
+
+#[test]
+fn ctrl_c_still_cancels_identity_edit() {
+    assert_eq!(
+        resolve(View::IdentityEdit, ctrl(KeyCode::Char('c'))),
+        Action::IdentityEditCancel
+    );
+}
+
+#[test]
+fn ctrl_c_still_cancels_contact_edit() {
+    assert_eq!(
+        resolve(View::ContactEdit, ctrl(KeyCode::Char('c'))),
+        Action::ContactEditCancel
+    );
+}

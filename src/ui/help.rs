@@ -1,6 +1,7 @@
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
+use super::util::centered_rect;
 use crate::app::App;
 use crate::theme::theme;
 
@@ -42,6 +43,7 @@ pub fn render(app: &App, frame: &mut Frame) {
         binding("m", "Move to folder"),
         binding("!", "Toggle flagged"),
         binding("/", "Search"),
+        binding("t", "Toggle threaded view"),
         binding("n / p", "Next / previous page"),
         binding("Tab", "Focus folder sidebar"),
         Line::from(""),
@@ -83,6 +85,64 @@ pub fn render(app: &App, frame: &mut Frame) {
         Line::from(Span::styled("  subject foo and from bar", t.normal())),
         Line::from(Span::styled("  order by date desc", t.normal())),
         Line::from(Span::styled("  before 2026-01-01", t.normal())),
+        Line::from(""),
+        Line::from(Span::styled(
+            "COMPOSE",
+            t.accent_style()
+                .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+        )),
+        binding("c", "New message (from envelope list)"),
+        binding("r / R", "Reply / Reply all (from message view)"),
+        binding("f", "Forward (from message view)"),
+        binding("Tab / Shift+Tab", "Next / previous header field"),
+        binding("Esc", "Jump to body (from header fields)"),
+        binding("Ctrl+p", "Send message"),
+        binding("Ctrl+q", "Discard message"),
+        Line::from(""),
+        Line::from(Span::styled(
+            "ADDRESS BOOK",
+            t.accent_style()
+                .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+        )),
+        binding("Ctrl+b", "Open address book"),
+        binding("j / k", "Navigate contacts"),
+        binding("n", "New contact"),
+        binding("e", "Edit selected contact"),
+        binding("d", "Delete selected contact"),
+        binding("/", "Search contacts"),
+        binding("q / Esc", "Close address book"),
+        Line::from(""),
+        Line::from(Span::styled(
+            "CONTACT EDIT FORM",
+            t.accent_style()
+                .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+        )),
+        binding("Tab / Shift+Tab", "Next / previous field"),
+        binding("Ctrl+p", "Save contact"),
+        binding("Esc", "Cancel"),
+        Line::from(""),
+        Line::from(Span::styled(
+            "IDENTITIES",
+            t.accent_style()
+                .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+        )),
+        binding("Shift+I", "Open identity manager (from envelope list)"),
+        binding("j / k", "Navigate identities"),
+        binding("n", "New identity"),
+        binding("e / Enter", "Edit selected identity"),
+        binding("d", "Delete selected identity"),
+        binding("s", "Set selected as default"),
+        binding("q / Esc", "Close identity manager"),
+        Line::from(""),
+        Line::from(Span::styled(
+            "IDENTITY EDIT FORM",
+            t.accent_style()
+                .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+        )),
+        binding("Tab / Shift+Tab", "Next / previous field"),
+        binding("Space / Enter", "Toggle default checkbox"),
+        binding("Ctrl+p", "Save identity"),
+        binding("Esc", "Cancel"),
     ];
 
     let paragraph = Paragraph::new(help_text)
@@ -99,20 +159,4 @@ fn binding<'a>(key: &'a str, desc: &'a str) -> Line<'a> {
         Span::styled(format!("  {key:<18}"), t.header_label()),
         Span::styled(desc, t.normal()),
     ])
-}
-
-fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
-    let popup_layout = Layout::vertical([
-        Constraint::Percentage((100 - percent_y) / 2),
-        Constraint::Percentage(percent_y),
-        Constraint::Percentage((100 - percent_y) / 2),
-    ])
-    .split(area);
-
-    Layout::horizontal([
-        Constraint::Percentage((100 - percent_x) / 2),
-        Constraint::Percentage(percent_x),
-        Constraint::Percentage((100 - percent_x) / 2),
-    ])
-    .split(popup_layout[1])[1]
 }

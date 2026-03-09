@@ -37,12 +37,16 @@ fn which(name: &str) -> Result<PathBuf, ()> {
     Err(())
 }
 
-/// Build the base command prefix with optional account flag.
-pub fn base_args(account: Option<&str>) -> Vec<String> {
-    let mut args = vec!["-o".to_string(), "json".to_string()];
-    if let Some(acct) = account {
-        args.push("-a".to_string());
-        args.push(acct.to_string());
+/// Build the global args prefix (output format only).
+/// Account flag (-a) must go on the subcommand, not here.
+pub fn global_args() -> Vec<String> {
+    vec!["-o".to_string(), "json".to_string()]
+}
+
+/// Build account args to append after the subcommand verb.
+pub fn account_args(account: Option<&str>) -> Vec<String> {
+    match account {
+        Some(acct) => vec!["-a".to_string(), acct.to_string()],
+        None => vec![],
     }
-    args
 }
