@@ -3,172 +3,196 @@
 # ║                   ratatui TUI email client · himalaya backend              ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 #
-# Part of SolverForge Linux — https://solverforge.org
-#
-# Usage:
-#   make              Build release binary
-#   make dev          Build debug + run
-#   make install      Install to /usr/local
-#   make help         Show all targets
+# Part of SolverForge Linux — https://solverforge.com
 #
 
-SHELL     := /bin/bash
-.DEFAULT_GOAL := release
+# ── Colors & Symbols ─────────────────────────────────────────────────────────
 
-# ── Project ──────────────────────────────────────────────────────────────────
+GREEN    := \033[92m
+CYAN     := \033[96m
+YELLOW   := \033[93m
+MAGENTA  := \033[95m
+RED      := \033[91m
+GRAY     := \033[90m
+BOLD     := \033[1m
+RESET    := \033[0m
 
-NAME      := solverforge-mail
-VERSION   := $(shell grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
-BIN       := target/release/$(NAME)
-BIN_DBG   := target/debug/$(NAME)
-HIMALAYA  := /opt/himalaya/target/release/himalaya
+CHECK    := ✓
+CROSS    := ✗
+ARROW    := ▸
+PROGRESS := →
 
-# ── Install paths ────────────────────────────────────────────────────────────
+# ── Project Metadata ─────────────────────────────────────────────────────────
 
-PREFIX    ?= /usr/local
-BINDIR    := $(PREFIX)/bin
-SHAREDIR  := $(PREFIX)/share/$(NAME)
+NAME     := solverforge-mail
+VERSION  := $(shell grep -m1 '^version' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+BIN      := target/release/$(NAME)
+BIN_DBG  := target/debug/$(NAME)
+HIMALAYA := $(HOME)/.local/share/solverforge/bin/solverforge-himalaya
 
-# ── Colors ───────────────────────────────────────────────────────────────────
+# ── Install Paths (SolverForge Linux framework) ───────────────────────────────
 
-C_RST     := \033[0m
-C_BLD     := \033[1m
-C_DIM     := \033[2m
-C_GRN     := \033[32m
-C_YLW     := \033[33m
-C_CYN     := \033[36m
-C_RED     := \033[31m
-C_MAG     := \033[35m
+SF_HOME  := $(HOME)/.local/share/solverforge
+SF_BIN   := $(SF_HOME)/bin
+SF_SHARE := $(SF_HOME)/mail
 
-define BANNER
-	@printf '$(C_BLD)$(C_CYN)'
-	@printf '  ┌──────────────────────────────────────┐\n'
-	@printf '  │  ✉  solverforge-mail %-15s │\n' '$(VERSION)'
-	@printf '  └──────────────────────────────────────┘\n'
-	@printf '$(C_RST)'
+# ── Phony Targets ─────────────────────────────────────────────────────────────
+
+.PHONY: help build release debug check clippy fmt fmt-check test lint ci
+.PHONY: dev run run-account
+.PHONY: install uninstall setup accounts
+.PHONY: clean dist-clean loc info deps-check himalaya-check
+
+.DEFAULT_GOAL := help
+
+# ── Banner ────────────────────────────────────────────────────────────────────
+
+define banner
+	@printf "$(CYAN)$(BOLD)╔══════════════════════════════════════╗$(RESET)\n"
+	@printf "$(CYAN)$(BOLD)║  ✉  solverforge-mail %-15s ║$(RESET)\n" "v$(VERSION)"
+	@printf "$(CYAN)$(BOLD)╚══════════════════════════════════════╝$(RESET)\n\n"
 endef
-
-msg = @printf '  $(C_BLD)$(C_GRN)%-10s$(C_RST) %s\n' '$(1)' '$(2)'
-warn = @printf '  $(C_BLD)$(C_YLW)%-10s$(C_RST) %s\n' '$(1)' '$(2)'
-err = @printf '  $(C_BLD)$(C_RED)%-10s$(C_RST) %s\n' '$(1)' '$(2)'
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  BUILD
 # ══════════════════════════════════════════════════════════════════════════════
 
-.PHONY: release debug check clippy fmt test clean help
-.PHONY: dev run install uninstall setup accounts
-.PHONY: deps-check himalaya-check loc info
-
 release: deps-check ## Build optimized release binary
-	$(BANNER)
-	$(call msg,CARGO,release build)
-	@cargo build --release 2>&1 | sed 's/^/    /'
-	$(call msg,OK,$(BIN))
+	$(call banner)
+	@printf "$(CYAN)$(BOLD)╔══════════════════════════════════════╗$(RESET)\n"
+	@printf "$(CYAN)$(BOLD)║          Release Build               ║$(RESET)\n"
+	@printf "$(CYAN)$(BOLD)╚══════════════════════════════════════╝$(RESET)\n\n"
+	@printf "$(PROGRESS) Building release binary...\n"
+	@cargo build --release 2>&1 | sed 's/^/    /' && \
+		printf "$(GREEN)$(CHECK) Release build successful$(RESET)\n\n" || \
+		(printf "$(RED)$(CROSS) Release build failed$(RESET)\n\n" && exit 1)
+
+build: release ## Alias for release
 
 debug: ## Build debug binary
-	$(call msg,CARGO,debug build)
-	@cargo build 2>&1 | sed 's/^/    /'
-	$(call msg,OK,$(BIN_DBG))
+	@printf "$(PROGRESS) Building debug binary...\n"
+	@cargo build 2>&1 | sed 's/^/    /' && \
+		printf "$(GREEN)$(CHECK) Debug build successful$(RESET)\n" || \
+		(printf "$(RED)$(CROSS) Debug build failed$(RESET)\n" && exit 1)
 
 check: ## Type-check without codegen (fast)
-	$(call msg,CHECK,type checking)
-	@cargo check 2>&1 | sed 's/^/    /'
+	@printf "$(PROGRESS) Type checking...\n"
+	@cargo check 2>&1 | sed 's/^/    /' && \
+		printf "$(GREEN)$(CHECK) Type check passed$(RESET)\n" || \
+		(printf "$(RED)$(CROSS) Type check failed$(RESET)\n" && exit 1)
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  QUALITY
 # ══════════════════════════════════════════════════════════════════════════════
 
 clippy: ## Run clippy lints
-	$(call msg,CLIPPY,linting)
-	@cargo clippy --all-targets -- -D warnings 2>&1 | sed 's/^/    /'
+	@printf "$(PROGRESS) Running clippy...\n"
+	@cargo clippy --all-targets -- -D warnings 2>&1 | sed 's/^/    /' && \
+		printf "$(GREEN)$(CHECK) Clippy passed$(RESET)\n" || \
+		(printf "$(RED)$(CROSS) Clippy warnings found$(RESET)\n" && exit 1)
 
 fmt: ## Format code with rustfmt
-	$(call msg,FMT,formatting)
-	@cargo fmt
+	@printf "$(PROGRESS) Formatting code...\n"
+	@cargo fmt --all
+	@printf "$(GREEN)$(CHECK) Code formatted$(RESET)\n"
 
 fmt-check: ## Check formatting without changes
-	$(call msg,FMT,checking)
-	@cargo fmt -- --check
+	@printf "$(PROGRESS) Checking formatting...\n"
+	@cargo fmt --all -- --check && \
+		printf "$(GREEN)$(CHECK) Formatting valid$(RESET)\n" || \
+		(printf "$(RED)$(CROSS) Formatting issues found$(RESET)\n" && exit 1)
 
 test: ## Run all tests
-	$(call msg,TEST,running test suite)
-	@cargo test 2>&1 | sed 's/^/    /'
-	$(call msg,OK,all tests passed)
+	@printf "$(CYAN)$(BOLD)╔══════════════════════════════════════╗$(RESET)\n"
+	@printf "$(CYAN)$(BOLD)║           Full Test Suite            ║$(RESET)\n"
+	@printf "$(CYAN)$(BOLD)╚══════════════════════════════════════╝$(RESET)\n\n"
+	@printf "$(PROGRESS) Running all tests...\n"
+	@cargo test 2>&1 | sed 's/^/    /' && \
+		printf "\n$(GREEN)$(CHECK) All tests passed$(RESET)\n\n" || \
+		(printf "\n$(RED)$(CROSS) Tests failed$(RESET)\n\n" && exit 1)
 
-lint: clippy fmt-check ## Run all lints (clippy + fmt check)
+lint: fmt-check clippy ## Run all lints (fmt-check + clippy)
+	@printf "\n$(GREEN)$(BOLD)$(CHECK) All lint checks passed$(RESET)\n\n"
 
-ci: lint test release ## Full CI pipeline: lint, test, build
-	$(call msg,CI,all checks passed)
+ci: lint test release ## Full CI pipeline: lint → test → build
+	@printf "$(GREEN)$(BOLD)╔══════════════════════════════════════╗$(RESET)\n"
+	@printf "$(GREEN)$(BOLD)║      $(CHECK) CI pipeline passed             ║$(RESET)\n"
+	@printf "$(GREEN)$(BOLD)╚══════════════════════════════════════╝$(RESET)\n\n"
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  RUN
 # ══════════════════════════════════════════════════════════════════════════════
 
 dev: debug ## Build debug and run
-	$(call msg,RUN,debug mode)
+	@printf "$(ARROW) Running in debug mode...\n"
 	@./$(BIN_DBG)
 
 run: release ## Build release and run
-	$(call msg,RUN,release mode)
+	@printf "$(ARROW) Running in release mode...\n"
 	@./$(BIN)
 
 run-account: release ## Run with specific account (ACCOUNT=name)
-	$(call msg,RUN,account=$(ACCOUNT))
+	@printf "$(ARROW) Running with account: $(YELLOW)$(ACCOUNT)$(RESET)\n"
 	@./$(BIN) --account $(ACCOUNT)
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  INSTALL
+#  INSTALL  (SolverForge Linux framework)
 # ══════════════════════════════════════════════════════════════════════════════
 
-install: release ## Install to PREFIX (default /usr/local)
-	$(BANNER)
-	$(call msg,INSTALL,$(BINDIR)/$(NAME))
-	@install -Dm755 $(BIN) $(DESTDIR)$(BINDIR)/$(NAME)
-	$(call msg,INSTALL,setup scripts → $(SHAREDIR)/)
-	@install -d $(DESTDIR)$(SHAREDIR)
-	@install -m755 setup-accounts.sh $(DESTDIR)$(SHAREDIR)/
-	@install -m755 setup-common.sh $(DESTDIR)$(SHAREDIR)/
-	@install -m755 setup-icloud.sh $(DESTDIR)$(SHAREDIR)/
-	@install -m755 setup-blinkenshell.sh $(DESTDIR)$(SHAREDIR)/
-	@install -m755 setup-oauth.sh $(DESTDIR)$(SHAREDIR)/
-	@install -m755 store-passwords.sh $(DESTDIR)$(SHAREDIR)/
-	@install -m755 fix-all-accounts.sh $(DESTDIR)$(SHAREDIR)/
-	@install -m755 setup.py $(DESTDIR)$(SHAREDIR)/
-	$(call msg,OK,installed $(NAME) v$(VERSION))
+install: release ## Install into SolverForge Linux (~/.local/share/solverforge)
+	$(call banner)
+	@printf "$(CYAN)$(BOLD)╔══════════════════════════════════════╗$(RESET)\n"
+	@printf "$(CYAN)$(BOLD)║    Installing into SolverForge       ║$(RESET)\n"
+	@printf "$(CYAN)$(BOLD)╚══════════════════════════════════════╝$(RESET)\n\n"
+	@printf "$(PROGRESS) Installing binary → $(SF_BIN)/$(NAME)\n"
+	@install -Dm755 $(BIN) $(SF_BIN)/$(NAME)
+	@printf "$(GREEN)$(CHECK) Binary installed$(RESET)\n"
+	@printf "$(PROGRESS) Installing setup scripts → $(SF_SHARE)/\n"
+	@install -d $(SF_SHARE)
+	@install -m755 setup-accounts.sh    $(SF_SHARE)/
+	@install -m755 setup-common.sh      $(SF_SHARE)/
+	@install -m755 setup-icloud.sh      $(SF_SHARE)/
+	@install -m755 setup-blinkenshell.sh $(SF_SHARE)/
+	@install -m755 setup-oauth.sh       $(SF_SHARE)/
+	@install -m755 store-passwords.sh   $(SF_SHARE)/
+	@install -m755 fix-all-accounts.sh  $(SF_SHARE)/
+	@install -m755 setup.py             $(SF_SHARE)/
+	@printf "$(GREEN)$(CHECK) Setup scripts installed$(RESET)\n"
+	@printf "\n$(GREEN)$(BOLD)$(CHECK) Installed $(NAME) v$(VERSION) into SolverForge$(RESET)\n\n"
 
-uninstall: ## Remove installed files
-	$(call warn,REMOVE,$(BINDIR)/$(NAME))
-	@rm -f $(DESTDIR)$(BINDIR)/$(NAME)
-	$(call warn,REMOVE,$(SHAREDIR)/)
-	@rm -rf $(DESTDIR)$(SHAREDIR)
-	$(call msg,OK,uninstalled)
+uninstall: ## Remove from SolverForge Linux
+	@printf "$(PROGRESS) Removing $(SF_BIN)/$(NAME)...\n"
+	@rm -f $(SF_BIN)/$(NAME)
+	@printf "$(PROGRESS) Removing $(SF_SHARE)/...\n"
+	@rm -rf $(SF_SHARE)
+	@printf "$(GREEN)$(CHECK) Uninstalled$(RESET)\n"
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  SETUP
 # ══════════════════════════════════════════════════════════════════════════════
 
 setup: ## Interactive account setup wizard
-	$(call msg,SETUP,launching account wizard)
+	@printf "$(ARROW) Launching account setup wizard...\n"
 	@python3 setup.py
 
 accounts: ## List configured email accounts
-	$(call msg,ACCOUNTS,querying himalaya)
+	@printf "$(PROGRESS) Querying himalaya...\n"
 	@$(HIMALAYA) account list 2>/dev/null || \
-		($(call err,ERROR,no accounts configured — run 'make setup'); false)
+		(printf "$(RED)$(CROSS) No accounts configured — run 'make setup'$(RESET)\n" && exit 1)
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  HOUSEKEEPING
 # ══════════════════════════════════════════════════════════════════════════════
 
 clean: ## Remove build artifacts
-	$(call warn,CLEAN,removing target/)
+	@printf "$(PROGRESS) Cleaning target/...\n"
 	@cargo clean
-	$(call msg,OK,clean)
+	@printf "$(GREEN)$(CHECK) Clean complete$(RESET)\n"
 
 dist-clean: clean ## Clean everything including Cargo.lock
-	$(call warn,CLEAN,removing Cargo.lock)
+	@printf "$(PROGRESS) Removing Cargo.lock...\n"
 	@rm -f Cargo.lock
+	@printf "$(GREEN)$(CHECK) Dist-clean complete$(RESET)\n"
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  INFO
@@ -176,46 +200,67 @@ dist-clean: clean ## Clean everything including Cargo.lock
 
 deps-check: ## Verify build dependencies
 	@command -v cargo >/dev/null 2>&1 || \
-		{ $(call err,MISSING,cargo — install Rust via https://rustup.rs); exit 1; }
+		(printf "$(RED)$(CROSS) cargo not found — install Rust via https://rustup.rs$(RESET)\n" && exit 1)
 
 himalaya-check: ## Verify himalaya is available
 	@test -x $(HIMALAYA) || \
-		{ $(call err,MISSING,himalaya at $(HIMALAYA)); exit 1; }
-	$(call msg,OK,himalaya found)
+		(printf "$(RED)$(CROSS) himalaya not found at $(HIMALAYA)$(RESET)\n" && exit 1)
+	@printf "$(GREEN)$(CHECK) himalaya found$(RESET)\n"
 
 loc: ## Count lines of code
-	$(BANNER)
-	@printf '  $(C_DIM)%-30s %s$(C_RST)\n' 'File' 'Lines'
-	@printf '  $(C_DIM)%-30s %s$(C_RST)\n' '──────────────────────────────' '─────'
+	$(call banner)
+	@printf "  $(GRAY)%-30s %s$(RESET)\n" 'File' 'Lines'
+	@printf "  $(GRAY)%-30s %s$(RESET)\n" '──────────────────────────────' '─────'
 	@find src -name '*.rs' | sort | while read f; do \
-		printf '  %-30s %s\n' "$$f" "$$(wc -l < "$$f")"; \
+		printf "  %-30s %s\n" "$$f" "$$(wc -l < "$$f")"; \
 	done
-	@printf '  $(C_DIM)%-30s %s$(C_RST)\n' '──────────────────────────────' '─────'
-	@printf '  $(C_BLD)%-30s %s$(C_RST)\n' 'Total' "$$(find src -name '*.rs' -exec cat {} + | wc -l)"
+	@printf "  $(GRAY)%-30s %s$(RESET)\n" '──────────────────────────────' '─────'
+	@printf "  $(BOLD)%-30s %s$(RESET)\n" 'Total' "$$(find src -name '*.rs' -exec cat {} + | wc -l)"
 
 info: ## Show project info
-	$(BANNER)
-	@printf '  $(C_DIM)version$(C_RST)    %s\n' '$(VERSION)'
-	@printf '  $(C_DIM)rustc$(C_RST)      %s\n' "$$(rustc --version 2>/dev/null || echo 'not found')"
-	@printf '  $(C_DIM)cargo$(C_RST)      %s\n' "$$(cargo --version 2>/dev/null || echo 'not found')"
-	@printf '  $(C_DIM)himalaya$(C_RST)   %s\n' "$$($(HIMALAYA) --version 2>/dev/null || echo 'not found')"
-	@printf '  $(C_DIM)binary$(C_RST)     %s\n' '$(BIN)'
-	@printf '  $(C_DIM)prefix$(C_RST)     %s\n' '$(PREFIX)'
+	$(call banner)
+	@printf "  $(GRAY)version$(RESET)    %s\n" "$(VERSION)"
+	@printf "  $(GRAY)rustc$(RESET)      %s\n" "$$(rustc --version 2>/dev/null || echo 'not found')"
+	@printf "  $(GRAY)cargo$(RESET)      %s\n" "$$(cargo --version 2>/dev/null || echo 'not found')"
+	@printf "  $(GRAY)himalaya$(RESET)   %s\n" "$$($(HIMALAYA) --version 2>/dev/null || echo 'not found')"
+	@printf "  $(GRAY)binary$(RESET)     %s\n" "$(BIN)"
+	@printf "  $(GRAY)install→$(RESET)   %s\n" "$(SF_BIN)/$(NAME)"
 	@echo
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  HELP
 # ══════════════════════════════════════════════════════════════════════════════
 
-help: ## Show this help
-	$(BANNER)
-	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | \
-		awk -F ':.*## ' '{ printf "  $(C_BLD)$(C_CYN)%-14s$(C_RST) %s\n", $$1, $$2 }'
-	@echo
-	@printf '  $(C_DIM)Examples:$(C_RST)\n'
-	@printf '    make                    Build release binary\n'
-	@printf '    make dev                Build debug + run\n'
-	@printf '    make ci                 Full lint → test → build pipeline\n'
-	@printf '    make install            Install to /usr/local\n'
-	@printf '    make run-account ACCOUNT=icloud\n'
-	@echo
+help:
+	$(call banner)
+	@/bin/echo -e "$(CYAN)$(BOLD)Build:$(RESET)"
+	@/bin/echo -e "  $(GREEN)make$(RESET)                  - Show this help"
+	@/bin/echo -e "  $(GREEN)make release$(RESET)          - Build optimized release binary"
+	@/bin/echo -e "  $(GREEN)make debug$(RESET)            - Build debug binary"
+	@/bin/echo -e "  $(GREEN)make check$(RESET)            - Type-check (fast)"
+	@/bin/echo -e ""
+	@/bin/echo -e "$(CYAN)$(BOLD)Quality:$(RESET)"
+	@/bin/echo -e "  $(GREEN)make test$(RESET)             - Run all tests"
+	@/bin/echo -e "  $(GREEN)make lint$(RESET)             - fmt-check + clippy"
+	@/bin/echo -e "  $(GREEN)make fmt$(RESET)              - Format code"
+	@/bin/echo -e "  $(GREEN)make clippy$(RESET)           - Run clippy lints"
+	@/bin/echo -e "  $(GREEN)make ci$(RESET)               - $(YELLOW)$(BOLD)Full CI pipeline: lint → test → build$(RESET)"
+	@/bin/echo -e ""
+	@/bin/echo -e "$(CYAN)$(BOLD)Run:$(RESET)"
+	@/bin/echo -e "  $(GREEN)make dev$(RESET)              - Build debug + run"
+	@/bin/echo -e "  $(GREEN)make run$(RESET)              - Build release + run"
+	@/bin/echo -e "  $(GREEN)make run-account ACCOUNT=x$(RESET) - Run with specific account"
+	@/bin/echo -e ""
+	@/bin/echo -e "$(CYAN)$(BOLD)Install (SolverForge Linux):$(RESET)"
+	@/bin/echo -e "  $(GREEN)make install$(RESET)          - Install into ~/.local/share/solverforge"
+	@/bin/echo -e "  $(GREEN)make uninstall$(RESET)        - Remove from SolverForge"
+	@/bin/echo -e "  $(GREEN)make setup$(RESET)            - Interactive account wizard"
+	@/bin/echo -e "  $(GREEN)make accounts$(RESET)         - List configured accounts"
+	@/bin/echo -e ""
+	@/bin/echo -e "$(CYAN)$(BOLD)Other:$(RESET)"
+	@/bin/echo -e "  $(GREEN)make clean$(RESET)            - Remove build artifacts"
+	@/bin/echo -e "  $(GREEN)make info$(RESET)             - Show project info"
+	@/bin/echo -e "  $(GREEN)make loc$(RESET)              - Count lines of code"
+	@/bin/echo -e ""
+	@/bin/echo -e "$(GRAY)Current version: v$(VERSION)$(RESET)"
+	@/bin/echo -e ""
