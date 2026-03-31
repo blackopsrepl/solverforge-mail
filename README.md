@@ -25,7 +25,7 @@ A spiffy ratatui-based TUI email client that wraps the himalaya CLI.
 - **Folder unread counts** - Shows (3) badge on folders
 - **Mouse support** - Click to select, scroll wheel works
 - **Multi-account** - Switch with Ctrl+a
-- **Vim keybindings** - j/k navigation, g/G jumps
+- **Vim-style navigation** - j/k and g/G in list/message views, plus edtui keys in compose body
 - **Smart error handling** - ANSI stripping, clean error messages
 - **Address book** - Contacts with name, email, phone, org, notes, tags
 - **Contact import** - vCard (.vcf) and Google CSV import
@@ -64,10 +64,54 @@ A spiffy ratatui-based TUI email client that wraps the himalaya CLI.
 - `d` - Delete
 - `a` - Download attachments
 
+### Compose View
+- `Tab` / `Shift+Tab` - Next/previous compose field
+- `j`/`k` in **Nav mode** (headers/action bar) - Next/previous field
+- `Enter` - Activate focused control (enter insert mode, cycle From, or activate action button)
+- Typing in header text fields auto-enters Insert mode and inserts the character
+- `Esc` - Exit insert mode / leave action bar focus
+- `Ctrl+c` / `Ctrl+q` - Discard compose
+- In **Body** focus: keys are forwarded to edtui (vim-style body editing stays local to body)
+- Discard confirmation modal: `y` confirms, `n`/`Esc` cancels
+
 ### Mouse
 - Scroll wheel - Navigate/scroll
 - Left click - Select folder/envelope
 - Right click - Go back (in message view)
+
+## Input Architecture (Compose)
+
+Compose input is resolved in two layers:
+
+1. **Context builder (`App::compose_key_context`)** maps runtime compose state into a compact context:
+   - Focus bucket: `From` / `Header` / `Body` / `ActionBar`
+   - Edit mode: `Nav` / `Insert`
+   - Popup flags: autocomplete visible, discard-confirm visible
+2. **Contextual resolver (`resolve_compose_with_context`)** applies deterministic priority rules:
+   - Global compose shortcuts (`Ctrl+c`, `Ctrl+q`)
+   - Discard-confirm modal interception (`y`, `n`, `Esc`)
+   - Autocomplete navigation/accept interception
+   - Body passthrough to edtui (except `Tab` / `Shift+Tab` for field cycling)
+   - Header/action-bar navigation and editing actions
+
+### Why this design
+- Keeps **vim-style body editing local to Body focus** (no interface-wide modal leakage).
+- Keeps compose behavior explicit and testable with a single resolver function.
+- Makes modal interactions predictable by using a clear precedence order.
+
+### Best-practice target outcome
+For this use case, the ideal architecture is:
+- A **single authoritative input router per view** (Compose already follows this pattern).
+- State modeled as explicit finite modes + overlays (focus + edit mode + popups).
+- Pure key-resolution functions with unit tests for each mode interaction.
+- Minimal side effects in key resolver; side effects happen in `App` action handlers.
+
+### One-pass, low-regression delivery strategy
+To improve safely in one pass:
+1. Keep behavior changes isolated to the compose resolver (`resolve_compose_with_context`).
+2. Encode precedence explicitly (shortcut > modal > popup > body passthrough > header/action).
+3. Add regression tests for each precedence boundary.
+4. Avoid moving side-effectful logic into resolver code.
 
 ## Account Setup
 

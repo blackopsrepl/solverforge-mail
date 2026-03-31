@@ -1,6 +1,8 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use pretty_assertions::assert_eq;
-use solverforge_mail::keys::{resolve, Action, View};
+use solverforge_mail::keys::{
+    resolve, resolve_compose_with_context, Action, ComposeFocus, ComposeKeyContext, EditMode, View,
+};
 
 fn key(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::NONE)
@@ -322,7 +324,7 @@ fn compose_tab_advances_field() {
 }
 
 #[test]
-fn compose_j_advances_field() {
+fn compose_default_j_advances_field() {
     assert_eq!(
         resolve(View::Compose, key(KeyCode::Char('j'))),
         Action::ComposeFieldNext
@@ -330,10 +332,64 @@ fn compose_j_advances_field() {
 }
 
 #[test]
-fn compose_k_retreats_field() {
+fn compose_default_k_retreats_field() {
     assert_eq!(
         resolve(View::Compose, key(KeyCode::Char('k'))),
         Action::ComposeFieldPrev
+    );
+}
+
+#[test]
+fn compose_body_forwards_jk_to_editor() {
+    let body_ctx = ComposeKeyContext {
+        focus: ComposeFocus::Body,
+        edit_mode: EditMode::Nav,
+        autocomplete_visible: false,
+        confirm_discard_visible: false,
+    };
+    assert_eq!(
+        resolve_compose_with_context(key(KeyCode::Char('j')), body_ctx),
+        Action::EditorKey(key(KeyCode::Char('j')))
+    );
+    assert_eq!(
+        resolve_compose_with_context(key(KeyCode::Char('k')), body_ctx),
+        Action::EditorKey(key(KeyCode::Char('k')))
+    );
+}
+
+#[test]
+fn compose_header_insert_keeps_char_input() {
+    let header_insert_ctx = ComposeKeyContext {
+        focus: ComposeFocus::Header,
+        edit_mode: EditMode::Insert,
+        autocomplete_visible: false,
+        confirm_discard_visible: false,
+    };
+    assert_eq!(
+        resolve_compose_with_context(key(KeyCode::Char('j')), header_insert_ctx),
+        Action::ComposeInput('j')
+    );
+}
+
+#[test]
+fn compose_confirm_discard_context_intercepts_keys() {
+    let confirm_ctx = ComposeKeyContext {
+        focus: ComposeFocus::Header,
+        edit_mode: EditMode::Nav,
+        autocomplete_visible: false,
+        confirm_discard_visible: true,
+    };
+    assert_eq!(
+        resolve_compose_with_context(key(KeyCode::Char('y')), confirm_ctx),
+        Action::ComposeConfirmDiscard
+    );
+    assert_eq!(
+        resolve_compose_with_context(key(KeyCode::Esc), confirm_ctx),
+        Action::ComposeCancelDiscard
+    );
+    assert_eq!(
+        resolve_compose_with_context(key(KeyCode::Char('x')), confirm_ctx),
+        Action::None
     );
 }
 

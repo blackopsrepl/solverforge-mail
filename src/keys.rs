@@ -34,6 +34,28 @@ pub enum EditMode {
     Insert,
 }
 
+/// Coarse compose focus buckets used by contextual key resolution.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComposeFocus {
+    From,
+    Header,
+    Body,
+    ActionBar,
+}
+
+/// Runtime compose context needed to resolve keys correctly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ComposeKeyContext {
+    /// Which compose region currently owns focus.
+    pub focus: ComposeFocus,
+    /// Nav vs Insert for header-style fields.
+    pub edit_mode: EditMode,
+    /// Whether contact-autocomplete suggestions are visible.
+    pub autocomplete_visible: bool,
+    /// Whether the discard-confirmation modal is currently shown.
+    pub confirm_discard_visible: bool,
+}
+
 /// Actions the app can take in response to a key press.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
@@ -164,6 +186,71 @@ pub fn resolve(view: View, key: KeyEvent) -> Action {
     }
 }
 
+/// Resolve compose keys with compose-state context.
+///
+/// This allows body editing keys to pass through to edtui while preserving
+/// field navigation on non-body controls.
+///
+/// Priority order (highest first):
+/// 1) global compose shortcuts (Ctrl+C / Ctrl+Q)
+/// 2) discard-confirm modal interception
+/// 3) autocomplete popup navigation/accept keys
+/// 4) body passthrough (except Tab/BackTab field cycling)
+/// 5) header/action-bar compose controls
+pub fn resolve_compose_with_context(key: KeyEvent, ctx: ComposeKeyContext) -> Action {
+    // Allow Ctrl+C / Ctrl+Q globally in compose as quit-discard
+    if key.modifiers.contains(KeyModifiers::CONTROL) {
+        return match key.code {
+            KeyCode::Char('c') | KeyCode::Char('q') => Action::ComposeDiscard,
+            _ => Action::EditorKey(key),
+        };
+    }
+
+    // Discard confirmation modal owns key handling while visible.
+    if ctx.confirm_discard_visible {
+        return match key.code {
+            KeyCode::Char('y') | KeyCode::Char('Y') => Action::ComposeConfirmDiscard,
+            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => Action::ComposeCancelDiscard,
+            _ => Action::None,
+        };
+    }
+
+    // If autocomplete popup is open, let app-level popup handler own navigation
+    // and acceptance keys.
+    if ctx.autocomplete_visible {
+        match key.code {
+            KeyCode::Down | KeyCode::Up | KeyCode::Enter | KeyCode::Tab | KeyCode::Esc => {
+                return Action::EditorKey(key);
+            }
+            _ => {}
+        }
+    }
+
+    // Body editor gets raw key events (except tab cycle between fields).
+    if ctx.focus == ComposeFocus::Body {
+        return match key.code {
+            KeyCode::Tab => Action::ComposeFieldNext,
+            KeyCode::BackTab => Action::ComposeFieldPrev,
+            _ => Action::EditorKey(key),
+        };
+    }
+
+    // Header and other non-body controls.
+    match key.code {
+        KeyCode::Tab => Action::ComposeFieldNext,
+        KeyCode::BackTab => Action::ComposeFieldPrev,
+        KeyCode::Down => Action::ComposeFieldNext,
+        KeyCode::Up => Action::ComposeFieldPrev,
+        KeyCode::Char('j') if ctx.edit_mode == EditMode::Nav => Action::ComposeFieldNext,
+        KeyCode::Char('k') if ctx.edit_mode == EditMode::Nav => Action::ComposeFieldPrev,
+        KeyCode::Enter => Action::ComposeEnterInsert,
+        KeyCode::Esc => Action::ComposeExitToNav,
+        KeyCode::Backspace => Action::ComposeBackspace,
+        KeyCode::Char(c) => Action::ComposeInput(c),
+        _ => Action::EditorKey(key),
+    }
+}
+
 fn resolve_envelope_list(key: KeyEvent) -> Action {
     match key.code {
         KeyCode::Char('q') => Action::Quit,
@@ -259,46 +346,20 @@ fn resolve_move_prompt(key: KeyEvent) -> Action {
     }
 }
 
-/// Resolve compose keys.  The caller (app.rs) is responsible for knowing
-/// whether we are in Nav or Insert mode and dispatching accordingly.
-/// We encode the mode intent into the Action so app.rs can act on it cleanly.
+/// Backward-compatible compose resolver used by tests and any call sites that
+/// do not have live compose state available.
 ///
-/// Modal scheme:
-///   Nav mode:
-///     j / Down        → ComposeFieldNext
-///     k / Up          → ComposeFieldPrev
-///     Tab             → ComposeFieldNext
-///     BackTab         → ComposeFieldPrev
-///     Enter           → ComposeEnterInsert  (enters Insert on text fields)
-///     Esc             → ComposeExitToNav    (on action-bar buttons → back to Body)
-///   Insert mode (text header fields):
-///     Esc             → ComposeExitToNav
-///     Backspace       → ComposeBackspace
-///     any printable   → ComposeInput(c)
-///   Body (edtui handles its own modal editing via EditorKey passthrough):
-///     Enter in Nav    → ComposeEnterInsert  (let edtui enter insert)
-///     Esc in Insert   → ComposeExitToNav    (exit edtui insert → Nav)
-///     all other keys  → EditorKey passthrough
+/// Uses a default "Header + Nav + no popups" context.
 fn resolve_compose(key: KeyEvent) -> Action {
-    // Allow Ctrl+C / Ctrl+Q globally in compose as quit-discard
-    if key.modifiers.contains(KeyModifiers::CONTROL) {
-        return match key.code {
-            KeyCode::Char('c') | KeyCode::Char('q') => Action::ComposeDiscard,
-            _ => Action::EditorKey(key),
-        };
-    }
-
-    match key.code {
-        KeyCode::Tab => Action::ComposeFieldNext,
-        KeyCode::BackTab => Action::ComposeFieldPrev,
-        KeyCode::Down | KeyCode::Char('j') => Action::ComposeFieldNext,
-        KeyCode::Up | KeyCode::Char('k') => Action::ComposeFieldPrev,
-        KeyCode::Enter => Action::ComposeEnterInsert,
-        KeyCode::Esc => Action::ComposeExitToNav,
-        KeyCode::Backspace => Action::ComposeBackspace,
-        KeyCode::Char(c) => Action::ComposeInput(c),
-        _ => Action::EditorKey(key),
-    }
+    resolve_compose_with_context(
+        key,
+        ComposeKeyContext {
+            focus: ComposeFocus::Header,
+            edit_mode: EditMode::Nav,
+            autocomplete_visible: false,
+            confirm_discard_visible: false,
+        },
+    )
 }
 
 fn resolve_contact_edit(key: KeyEvent) -> Action {

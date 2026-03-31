@@ -136,3 +136,52 @@ fn tab_to_save_saves_identity_edit_form() {
     assert_eq!(app.identities.len(), 1);
     assert_eq!(app.identities[0].email, "work@example.com");
 }
+
+#[test]
+fn compose_typing_auto_enters_insert_for_to_field() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use solverforge_mail::compose::{ComposeMode, ComposeState, FocusedField};
+    use solverforge_mail::keys::{EditMode, View};
+
+    let mut app = App::new(None);
+    app.view = View::Compose;
+
+    let mut compose = ComposeState::new(ComposeMode::New, None);
+    compose.focused = FocusedField::To;
+    compose.edit_mode = EditMode::Nav;
+    app.compose_state = Some(compose);
+
+    app.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE));
+
+    let cs = app
+        .compose_state
+        .as_ref()
+        .expect("compose state should exist");
+    assert_eq!(cs.edit_mode, EditMode::Insert);
+    assert_eq!(cs.to, "a");
+    assert!(cs.dirty);
+}
+
+#[test]
+fn compose_typing_auto_enters_insert_for_subject_field() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use solverforge_mail::compose::{ComposeMode, ComposeState, FocusedField};
+    use solverforge_mail::keys::{EditMode, View};
+
+    let mut app = App::new(None);
+    app.view = View::Compose;
+
+    let mut compose = ComposeState::new(ComposeMode::New, None);
+    compose.focused = FocusedField::Subject;
+    compose.edit_mode = EditMode::Nav;
+    app.compose_state = Some(compose);
+
+    app.handle_key(KeyEvent::new(KeyCode::Char('H'), KeyModifiers::NONE));
+
+    let cs = app
+        .compose_state
+        .as_ref()
+        .expect("compose state should exist");
+    assert_eq!(cs.edit_mode, EditMode::Insert);
+    assert_eq!(cs.subject, "H");
+}

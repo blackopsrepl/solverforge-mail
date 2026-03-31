@@ -13,7 +13,7 @@ use crate::himalaya::types::*;
 use crate::identities::Identity;
 use crate::identity_edit::IdentityEditState;
 use crate::keys::EditMode;
-use crate::keys::{self, Action, View};
+use crate::keys::{self, Action, ComposeFocus, ComposeKeyContext, View};
 use crate::worker::{Worker, WorkerResult};
 
 // Page size for envelope listing.
@@ -650,8 +650,41 @@ impl App {
 
     // ── Key handling ────────────────────────────────────────────────
 
+    fn compose_key_context(&self) -> ComposeKeyContext {
+        self.compose_state
+            .as_ref()
+            .map(|cs| ComposeKeyContext {
+                focus: match cs.focused {
+                    FocusedField::From => ComposeFocus::From,
+                    FocusedField::To
+                    | FocusedField::Cc
+                    | FocusedField::Bcc
+                    | FocusedField::Subject => ComposeFocus::Header,
+                    FocusedField::Body => ComposeFocus::Body,
+                    FocusedField::Send
+                    | FocusedField::Draft
+                    | FocusedField::Attach
+                    | FocusedField::Discard => ComposeFocus::ActionBar,
+                },
+                edit_mode: cs.edit_mode,
+                autocomplete_visible: cs.autocomplete.is_some(),
+                confirm_discard_visible: cs.confirm_discard,
+            })
+            .unwrap_or(ComposeKeyContext {
+                focus: ComposeFocus::Header,
+                edit_mode: EditMode::Nav,
+                autocomplete_visible: false,
+                confirm_discard_visible: false,
+            })
+    }
+
     pub fn handle_key(&mut self, key: KeyEvent) {
-        let action = keys::resolve(self.view, key);
+        let action = if self.view == View::Compose {
+            let ctx = self.compose_key_context();
+            keys::resolve_compose_with_context(key, ctx)
+        } else {
+            keys::resolve(self.view, key)
+        };
 
         match action {
             Action::Quit => self.running = false,
@@ -719,6 +752,27 @@ impl App {
                 }
             }
             Action::ComposeInput(c) => {
+                if let Some(ref mut cs) = self.compose_state {
+                    // Auto-enter Insert on header text fields when typing.
+                    if cs.edit_mode == EditMode::Nav
+                        && matches!(
+                            cs.focused,
+                            FocusedField::To
+                                | FocusedField::Cc
+                                | FocusedField::Bcc
+                                | FocusedField::Subject
+                        )
+                    {
+                        cs.edit_mode = EditMode::Insert;
+                    }
+
+                    if cs.edit_mode == EditMode::Insert {
+                        if let Some(field) = cs.focused_line_field_mut() {
+                            field.push(c);
+                            cs.dirty = true;
+                        }
+                    }
+                }
                 let is_address = {
                     let cs = self.compose_state.as_ref();
                     cs.map(|cs| {
@@ -730,15 +784,6 @@ impl App {
                     })
                     .unwrap_or(false)
                 };
-                if let Some(ref mut cs) = self.compose_state {
-                    // Only accept input when in Insert mode (From/Body have their own logic)
-                    if cs.edit_mode == EditMode::Insert {
-                        if let Some(field) = cs.focused_line_field_mut() {
-                            field.push(c);
-                            cs.dirty = true;
-                        }
-                    }
-                }
                 if is_address {
                     self.update_autocomplete();
                 }
@@ -1302,25 +1347,6 @@ impl App {
     ///   - Body: full edtui passthrough for vim-style editing
     fn handle_editor_key(&mut self, key: crossterm::event::KeyEvent) {
         use crossterm::event::KeyCode;
-
-        // Handle confirm-discard overlay keys first.
-        if let Some(ref mut cs) = self.compose_state {
-            if cs.confirm_discard {
-                match key.code {
-                    KeyCode::Char('y') | KeyCode::Char('Y') => {
-                        self.compose_state = None;
-                        self.view = View::EnvelopeList;
-                    }
-                    KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
-                        if let Some(ref mut cs) = self.compose_state {
-                            cs.confirm_discard = false;
-                        }
-                    }
-                    _ => {}
-                }
-                return;
-            }
-        }
 
         // Clear send error on any key.
         if let Some(ref mut cs) = self.compose_state {
