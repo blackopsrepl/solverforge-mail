@@ -8,23 +8,21 @@ Layout:
 │ Bcc:     │ <input field>                            │
 │ Subject: │ <input field>                            │
 ├──────────────────────────────────────────────────── │
-│                                                      │  edtui body
-│   (vim-powered editing zone)                         │
+│                                                      │  compose body
+│   (email-first multiline editor)                     │
 │                                                      │
 ├─────────────────────────────────────────────────────│
-│ -- NORMAL --    Ctrl+p: Send  Tab: next field   │  status bar
+│ -- COMPOSE --   Ctrl+f: find   Tab: next field   │  status bar
 └─────────────────────────────────────────────────────┘ */
 
-use edtui::{EditorTheme, EditorView};
 use ratatui::prelude::*;
 use ratatui::widgets::*;
 
 use crate::app::App;
 use crate::compose::{ComposeMode, ComposeState, FocusedField};
-use crate::keys::EditMode;
 use crate::theme::theme;
 use crate::ui::action_bar::{
-    render_action_bar, Button, ICON_ATTACH, ICON_DISCARD, ICON_DRAFT, ICON_SEND,
+    render_action_bar_with_label, Button, ICON_ATTACH, ICON_DISCARD, ICON_DRAFT, ICON_SEND,
 };
 
 /// Render the full compose view.
@@ -41,7 +39,7 @@ pub fn render(app: &App, frame: &mut Frame) {
         Constraint::Length(1), // header bar
         Constraint::Length(7), // header fields (From/To/Cc/Bcc/Subject + borders)
         Constraint::Fill(1),   // editor body
-        Constraint::Length(1), // status / vim mode bar
+        Constraint::Length(1), // status / compose bar
     ])
     .split(area);
 
@@ -214,13 +212,6 @@ fn render_body(state: &ComposeState, frame: &mut Frame, area: Rect) {
         t.border()
     };
 
-    // Build the EditorView with our theme colours
-    let editor_theme = EditorTheme::default()
-        .base(Style::default().fg(t.foreground).bg(t.background))
-        .cursor_style(Style::default().fg(t.background).bg(t.cursor))
-        .selection_style(Style::default().fg(t.selection_fg).bg(t.selection_bg))
-        .hide_status_line(); // we render our own status line
-
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(border_style)
@@ -228,25 +219,21 @@ fn render_body(state: &ComposeState, frame: &mut Frame, area: Rect) {
 
     frame.render_widget(block.clone(), area);
     let inner = block.inner(area);
-
-    let mut editor_state = state.body.clone();
-    let view = EditorView::new(&mut editor_state).theme(editor_theme);
-    frame.render_widget(view, inner);
+    frame.render_widget(state.body.textarea(), inner);
 }
 
 // ── Action bar ────────────────────────────────────────────────────────────────
 
 fn render_compose_action_bar(state: &ComposeState, frame: &mut Frame, area: Rect) {
-    // Determine the effective edit mode to show in the pill.
-    // When body is focused we show edtui's internal mode instead.
-    let effective_mode = if state.focused == FocusedField::Body {
-        use edtui::EditorMode;
-        match state.body.mode {
-            EditorMode::Normal | EditorMode::Search => EditMode::Nav,
-            EditorMode::Insert | EditorMode::Visual => EditMode::Insert,
-        }
+    let (status_label, status_style) = if state.body.is_search_active() {
+        (
+            format!(" FIND: {} ", state.body.search_query()),
+            theme().mode_insert(),
+        )
+    } else if state.focused == FocusedField::Body {
+        (" BODY ".to_string(), theme().mode_insert())
     } else {
-        state.edit_mode
+        (" COMPOSE ".to_string(), theme().mode_nav())
     };
 
     // Determine which button index is focused (None when a non-button field is focused).
@@ -282,7 +269,14 @@ fn render_compose_action_bar(state: &ComposeState, frame: &mut Frame, area: Rect
         },
     ];
 
-    render_action_bar(frame, area, effective_mode, &buttons, focused_btn_idx);
+    render_action_bar_with_label(
+        frame,
+        area,
+        &status_label,
+        status_style,
+        &buttons,
+        focused_btn_idx,
+    );
 }
 
 // ── Discard confirmation overlay ─────────────────────────────────────────────

@@ -2,6 +2,7 @@
 
 mod app;
 mod compose;
+mod compose_editor;
 mod contact_edit;
 mod contacts;
 mod credentials;

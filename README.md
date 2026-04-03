@@ -1,3 +1,16 @@
+<div align="center">
+
+  <img src="assets/mascot.png" alt="SolverForge Mail mascot" width="320" />
+
+  <br />
+
+  [![CI](https://github.com/blackopsrepl/solverforge-mail/actions/workflows/ci.yml/badge.svg?style=for-the-badge)](https://github.com/blackopsrepl/solverforge-mail/actions/workflows/ci.yml)
+  [![Version](https://img.shields.io/badge/version-v0.2.0-00E6A8?style=for-the-badge)](https://github.com/blackopsrepl/solverforge-mail)
+  [![Rust](https://img.shields.io/badge/rust-stable-orange?style=for-the-badge)](https://www.rust-lang.org)
+  [![Built With Ratatui](https://img.shields.io/badge/built%20with-ratatui-5A54FF?style=for-the-badge)](https://ratatui.rs/)
+
+</div>
+
 # SolverForge Mail
 
 A spiffy ratatui-based TUI email client that wraps the himalaya CLI.
@@ -5,12 +18,9 @@ A spiffy ratatui-based TUI email client that wraps the himalaya CLI.
 ## Quick Start
 
 ```bash
-# Run with auto-detected account
-./solverforge-mail
-
-# Run with specific account
-./solverforge-mail test
-./solverforge-mail --account icloud
+# Run from source with a specific account
+cargo run -- --account test
+cargo run -- --account icloud
 
 # Set up accounts
 ./setup-accounts.sh
@@ -25,7 +35,7 @@ A spiffy ratatui-based TUI email client that wraps the himalaya CLI.
 - **Folder unread counts** - Shows (3) badge on folders
 - **Mouse support** - Click to select, scroll wheel works
 - **Multi-account** - Switch with Ctrl+a
-- **Vim keybindings** - j/k navigation, g/G jumps
+- **Fast keyboard navigation** - j/k and g/G in list/message views, plus direct multiline editing in compose
 - **Smart error handling** - ANSI stripping, clean error messages
 - **Address book** - Contacts with name, email, phone, org, notes, tags
 - **Contact import** - vCard (.vcf) and Google CSV import
@@ -64,10 +74,57 @@ A spiffy ratatui-based TUI email client that wraps the himalaya CLI.
 - `d` - Delete
 - `a` - Download attachments
 
+### Compose View
+- `Tab` / `Shift+Tab` - Next/previous compose field
+- `Up` / `Down` in headers or action bar - Previous/next compose field
+- Typing in header text fields edits them directly
+- `Enter` on the `From` field cycles identities
+- `Enter` on header text fields advances to the next compose field
+- `Enter` on action buttons activates the focused action
+- `Esc` on the action bar returns focus to the body
+- `Ctrl+c` / `Ctrl+q` - Discard compose
+- In **Body** focus: type directly in the multiline editor
+- `Ctrl+f` in the body opens in-body search; `Enter`/`F3` repeats forward and `Shift+F3` repeats backward
+- Discard confirmation modal: `y` confirms, `n`/`Esc` cancels
+
 ### Mouse
 - Scroll wheel - Navigate/scroll
 - Left click - Select folder/envelope
 - Right click - Go back (in message view)
+
+## Input Architecture (Compose)
+
+Compose input is resolved in two layers:
+
+1. **Context builder (`App::compose_key_context`)** maps runtime compose state into a compact context:
+   - Focus bucket: `From` / `Header` / `Body` / `ActionBar`
+   - Popup flags: autocomplete visible, discard-confirm visible
+2. **Contextual resolver (`resolve_compose_with_context`)** applies deterministic priority rules:
+   - Discard-confirm modal interception (`y`, `n`, `Esc`)
+   - Global compose shortcuts (`Ctrl+c`, `Ctrl+q`)
+   - Autocomplete navigation/accept interception
+   - Compose shell controls (`Tab`, `Shift+Tab`, non-body `Up`/`Down`, action-bar activation)
+   - Passthrough to the focused compose field
+
+### Why this design
+- Keeps compose ownership explicit while the body editor stays focused on text editing.
+- Keeps compose behavior explicit and testable with a single resolver function.
+- Makes modal interactions predictable by using a clear precedence order.
+- Tracks `dirty` from actual text mutations instead of inferring it from raw body keys.
+
+### Best-practice target outcome
+For this use case, the ideal architecture is:
+- A **single authoritative input router per view** (Compose already follows this pattern).
+- State modeled as explicit focus buckets + overlays.
+- Pure key-resolution functions with unit tests for each mode interaction.
+- Minimal side effects in key resolver; side effects happen in `App` action handlers.
+
+### One-pass, low-regression delivery strategy
+To improve safely in one pass:
+1. Keep behavior changes isolated to the compose resolver (`resolve_compose_with_context`).
+2. Encode precedence explicitly (modal > shortcut > popup > compose shell > focused-field passthrough).
+3. Add regression tests for each precedence boundary.
+4. Avoid moving side-effectful logic into resolver code.
 
 ## Account Setup
 
@@ -86,8 +143,8 @@ Run the setup wizard:
 ```
 
 Individual account setup:
+- **Generic IMAP/SMTP**: Provider-agnostic password flow for any configured himalaya account
 - **iCloud**: Requires app-specific password from appleid.apple.com
-- **Blinkenshell**: Simple password authentication
 - **Gmail/Outlook**: OAuth2 browser flow
 
 ## Architecture
@@ -116,7 +173,7 @@ The test account always works:
 ### Authentication errors
 - **iCloud**: Need app-specific password, not Apple ID password
 - **Gmail/Outlook**: OAuth tokens expire, re-run `himalaya account configure`
-- **Blinkenshell**: Check keyring is unlocked (`kwalletd6` running)
+- **Password-based IMAP/SMTP**: Check keyring is unlocked (`kwalletd6` running)
 
 ### Keyring issues
 ```bash
@@ -135,17 +192,27 @@ cargo build --release
 # Test
 cargo test
 
+# Local CI-style validation
+make ci
+
 # Run with specific account
 cargo run -- --account test
+```
+
+## CI Status
+
+GitHub Actions now runs the same core validation as local development:
+
+```bash
+make ci
 ```
 
 ## Files
 
 ```
 solverforge-mail/
-├── solverforge-mail          # Smart launcher (auto-detects working account)
 ├── setup-accounts.sh         # Interactive account setup wizard
-├── setup-blinkenshell.sh     # Blinkenshell password setup
+├── setup-password-account.sh # Generic password-based IMAP/SMTP setup
 ├── setup-icloud.sh           # iCloud app-specific password setup
 ├── setup-oauth.sh            # Gmail/Outlook OAuth setup
 ├── src/

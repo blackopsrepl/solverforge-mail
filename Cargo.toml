@@ -1,6 +1,6 @@
 [package]
 name = "solverforge-mail"
-version = "0.1.62"
+version = "0.2.0"
 edition = "2021"
 description = "A spiffy ratatui TUI email client wrapping himalaya"
 
@@ -14,10 +14,11 @@ anyhow = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 dirs = "6"
 unicode-width = "0.2"
+regex = "1"
 # Phase 1: Credential + address store
 rusqlite = { version = "0.38", features = ["bundled"] }
-# Phase 2: Vim-native compose editor
-edtui = { version = "0.9", default-features = false }
+# Phase 2: Email-first compose editor
+tui-textarea = { version = "0.7.0", features = ["search"] }
 
 [dev-dependencies]
 pretty_assertions = "1"

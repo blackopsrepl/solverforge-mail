@@ -2,6 +2,7 @@
 
 pub mod app;
 pub mod compose;
+pub mod compose_editor;
 pub mod contact_edit;
 pub mod contacts;
 pub mod credentials;

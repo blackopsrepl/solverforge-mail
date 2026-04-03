@@ -38,7 +38,7 @@ SF_SHARE := $(SF_HOME)/mail
 
 # ── Phony Targets ─────────────────────────────────────────────────────────────
 
-.PHONY: help build release debug check clippy fmt fmt-check test lint ci
+.PHONY: help build release debug check clippy fmt fmt-check test lint ci pre-release version
 .PHONY: dev run run-account
 .PHONY: install uninstall setup accounts
 .PHONY: clean dist-clean loc info deps-check himalaya-check
@@ -114,10 +114,16 @@ test: ## Run all tests
 lint: fmt-check clippy ## Run all lints (fmt-check + clippy)
 	@printf "\n$(GREEN)$(BOLD)$(CHECK) All lint checks passed$(RESET)\n\n"
 
-ci: lint test release ## Full CI pipeline: lint → test → build
+ci: lint test release ## Local CI-style validation: lint → test → build
 	@printf "$(GREEN)$(BOLD)╔══════════════════════════════════════╗$(RESET)\n"
-	@printf "$(GREEN)$(BOLD)║      $(CHECK) CI pipeline passed             ║$(RESET)\n"
+	@printf "$(GREEN)$(BOLD)║   $(CHECK) Local validation passed           ║$(RESET)\n"
 	@printf "$(GREEN)$(BOLD)╚══════════════════════════════════════╝$(RESET)\n\n"
+
+pre-release: lint test release ## Run release-oriented validation
+	@printf "$(GREEN)$(BOLD)╔══════════════════════════════════════╗$(RESET)\n"
+	@printf "$(GREEN)$(BOLD)║   $(CHECK) Pre-release checks passed        ║$(RESET)\n"
+	@printf "$(GREEN)$(BOLD)╚══════════════════════════════════════╝$(RESET)\n"
+	@printf "$(GREEN)$(BOLD)Ready for release: v$(VERSION)$(RESET)\n\n"
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  RUN
@@ -152,7 +158,7 @@ install: release ## Install into SolverForge Linux (~/.local/share/solverforge)
 	@install -m755 setup-accounts.sh    $(SF_SHARE)/
 	@install -m755 setup-common.sh      $(SF_SHARE)/
 	@install -m755 setup-icloud.sh      $(SF_SHARE)/
-	@install -m755 setup-blinkenshell.sh $(SF_SHARE)/
+	@install -m755 setup-password-account.sh $(SF_SHARE)/
 	@install -m755 setup-oauth.sh       $(SF_SHARE)/
 	@install -m755 store-passwords.sh   $(SF_SHARE)/
 	@install -m755 fix-all-accounts.sh  $(SF_SHARE)/
@@ -227,6 +233,9 @@ info: ## Show project info
 	@printf "  $(GRAY)install→$(RESET)   %s\n" "$(SF_BIN)/$(NAME)"
 	@echo
 
+version: ## Print the current crate version
+	@printf "$(YELLOW)$(BOLD)%s$(RESET)\n" "$(VERSION)"
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  HELP
 # ══════════════════════════════════════════════════════════════════════════════
@@ -244,7 +253,8 @@ help:
 	@/bin/echo -e "  $(GREEN)make lint$(RESET)             - fmt-check + clippy"
 	@/bin/echo -e "  $(GREEN)make fmt$(RESET)              - Format code"
 	@/bin/echo -e "  $(GREEN)make clippy$(RESET)           - Run clippy lints"
-	@/bin/echo -e "  $(GREEN)make ci$(RESET)               - $(YELLOW)$(BOLD)Full CI pipeline: lint → test → build$(RESET)"
+	@/bin/echo -e "  $(GREEN)make ci$(RESET)               - $(YELLOW)$(BOLD)Local CI-style validation: lint → test → build$(RESET)"
+	@/bin/echo -e "  $(GREEN)make pre-release$(RESET)      - Release-oriented validation"
 	@/bin/echo -e ""
 	@/bin/echo -e "$(CYAN)$(BOLD)Run:$(RESET)"
 	@/bin/echo -e "  $(GREEN)make dev$(RESET)              - Build debug + run"
@@ -261,6 +271,7 @@ help:
 	@/bin/echo -e "  $(GREEN)make clean$(RESET)            - Remove build artifacts"
 	@/bin/echo -e "  $(GREEN)make info$(RESET)             - Show project info"
 	@/bin/echo -e "  $(GREEN)make loc$(RESET)              - Count lines of code"
+	@/bin/echo -e "  $(GREEN)make version$(RESET)          - Print crate version"
 	@/bin/echo -e ""
 	@/bin/echo -e "$(GRAY)Current version: v$(VERSION)$(RESET)"
 	@/bin/echo -e ""

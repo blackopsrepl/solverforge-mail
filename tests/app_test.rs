@@ -136,3 +136,163 @@ fn tab_to_save_saves_identity_edit_form() {
     assert_eq!(app.identities.len(), 1);
     assert_eq!(app.identities[0].email, "work@example.com");
 }
+
+#[test]
+fn compose_typing_updates_to_field_directly() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use solverforge_mail::compose::{ComposeMode, ComposeState, FocusedField};
+    use solverforge_mail::keys::View;
+
+    let mut app = App::new(None);
+    app.view = View::Compose;
+
+    let mut compose = ComposeState::new(ComposeMode::New, None);
+    compose.focused = FocusedField::To;
+    app.compose_state = Some(compose);
+
+    app.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE));
+
+    let cs = app
+        .compose_state
+        .as_ref()
+        .expect("compose state should exist");
+    assert_eq!(cs.to, "a");
+    assert!(cs.dirty);
+}
+
+#[test]
+fn compose_typing_updates_subject_directly() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use solverforge_mail::compose::{ComposeMode, ComposeState, FocusedField};
+    use solverforge_mail::keys::View;
+
+    let mut app = App::new(None);
+    app.view = View::Compose;
+
+    let mut compose = ComposeState::new(ComposeMode::New, None);
+    compose.focused = FocusedField::Subject;
+    app.compose_state = Some(compose);
+
+    app.handle_key(KeyEvent::new(KeyCode::Char('H'), KeyModifiers::NONE));
+
+    let cs = app
+        .compose_state
+        .as_ref()
+        .expect("compose state should exist");
+    assert_eq!(cs.subject, "H");
+}
+
+#[test]
+fn compose_confirm_discard_blocks_ctrl_passthrough_on_from_field() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use solverforge_mail::compose::{ComposeMode, ComposeState, FocusedField};
+    use solverforge_mail::identities::Identity;
+    use solverforge_mail::keys::View;
+
+    let mut app = App::new(None);
+    app.view = View::Compose;
+
+    let mut compose = ComposeState::new(ComposeMode::New, Some("test".to_string()));
+    compose.focused = FocusedField::From;
+    compose.confirm_discard = true;
+    compose.from_identities = vec![
+        Identity {
+            id: 1,
+            account: "test".to_string(),
+            name: Some("Work".to_string()),
+            display_name: Some("Work".to_string()),
+            email: "work@example.com".to_string(),
+            is_default: true,
+        },
+        Identity {
+            id: 2,
+            account: "test".to_string(),
+            name: Some("Alt".to_string()),
+            display_name: Some("Alt".to_string()),
+            email: "alt@example.com".to_string(),
+            is_default: false,
+        },
+    ];
+    app.compose_state = Some(compose);
+
+    app.handle_key(KeyEvent::new(KeyCode::Char('l'), KeyModifiers::CONTROL));
+
+    let cs = app
+        .compose_state
+        .as_ref()
+        .expect("compose state should exist");
+    assert!(cs.confirm_discard);
+    assert_eq!(cs.from_idx, None);
+}
+
+#[test]
+fn compose_body_escape_does_not_mark_pristine_draft_dirty() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use solverforge_mail::compose::{ComposeMode, ComposeState, FocusedField};
+    use solverforge_mail::keys::View;
+
+    let mut app = App::new(None);
+    app.view = View::Compose;
+
+    let mut compose = ComposeState::new(ComposeMode::New, None);
+    compose.focused = FocusedField::Body;
+    app.compose_state = Some(compose);
+
+    app.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+
+    let cs = app
+        .compose_state
+        .as_ref()
+        .expect("compose state should exist");
+    assert!(!cs.dirty);
+    assert!(!cs.confirm_discard);
+}
+
+#[test]
+fn compose_body_navigation_does_not_mark_pristine_draft_dirty() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use solverforge_mail::compose::{ComposeMode, ComposeState, FocusedField};
+    use solverforge_mail::keys::View;
+
+    let mut app = App::new(None);
+    app.view = View::Compose;
+
+    let mut compose = ComposeState::new(ComposeMode::New, None);
+    compose.focused = FocusedField::Body;
+    app.compose_state = Some(compose);
+
+    app.handle_key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+
+    let cs = app
+        .compose_state
+        .as_ref()
+        .expect("compose state should exist");
+    assert!(!cs.dirty);
+    assert!(!cs.confirm_discard);
+}
+
+#[test]
+fn compose_tab_out_of_body_clears_active_search() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use solverforge_mail::compose::{ComposeMode, ComposeState, FocusedField};
+    use solverforge_mail::keys::View;
+
+    let mut app = App::new(None);
+    app.view = View::Compose;
+
+    let mut compose = ComposeState::new(ComposeMode::New, None);
+    compose.focused = FocusedField::Body;
+    app.compose_state = Some(compose);
+
+    app.handle_key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL));
+    app.handle_key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE));
+    app.handle_key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE));
+
+    let cs = app
+        .compose_state
+        .as_ref()
+        .expect("compose state should exist");
+    assert_eq!(cs.focused, FocusedField::Send);
+    assert!(!cs.body.is_search_active());
+    assert_eq!(cs.body.search_query(), "");
+}

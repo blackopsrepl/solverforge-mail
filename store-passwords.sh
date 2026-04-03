@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/setup-common.sh"
 
 # !!!! EDIT THESE BEFORE RUNNING !!!!
-ACCOUNT_1_SERVICE=""       # e.g. "blinkenshell"
+ACCOUNT_1_SERVICE=""       # e.g. "work-mail"
 ACCOUNT_1_PASSWORD=""
 
 ACCOUNT_2_SERVICE=""       # e.g. "icloud"
