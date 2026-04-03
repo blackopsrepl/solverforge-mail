@@ -6,15 +6,14 @@
 
 A spiffy ratatui-based TUI email client that wraps the himalaya CLI.
 
+Current release target: `v0.2.0`
+
 ## Quick Start
 
 ```bash
-# Run with auto-detected account
-./solverforge-mail
-
-# Run with specific account
-./solverforge-mail test
-./solverforge-mail --account icloud
+# Run from source with a specific account
+cargo run -- --account test
+cargo run -- --account icloud
 
 # Set up accounts
 ./setup-accounts.sh
@@ -186,15 +185,26 @@ cargo build --release
 # Test
 cargo test
 
+# Local CI-style validation
+make ci
+
 # Run with specific account
 cargo run -- --account test
+```
+
+## CI Status
+
+There is currently no hosted CI configured for this repository.
+The project has a local validation target instead:
+
+```bash
+make ci
 ```
 
 ## Files
 
 ```
 solverforge-mail/
-├── solverforge-mail          # Smart launcher (auto-detects working account)
 ├── setup-accounts.sh         # Interactive account setup wizard
 ├── setup-blinkenshell.sh     # Blinkenshell password setup
 ├── setup-icloud.sh           # iCloud app-specific password setup

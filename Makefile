@@ -114,9 +114,9 @@ test: ## Run all tests
 lint: fmt-check clippy ## Run all lints (fmt-check + clippy)
 	@printf "\n$(GREEN)$(BOLD)$(CHECK) All lint checks passed$(RESET)\n\n"
 
-ci: lint test release ## Full CI pipeline: lint → test → build
+ci: lint test release ## Local CI-style validation: lint → test → build
 	@printf "$(GREEN)$(BOLD)╔══════════════════════════════════════╗$(RESET)\n"
-	@printf "$(GREEN)$(BOLD)║      $(CHECK) CI pipeline passed             ║$(RESET)\n"
+	@printf "$(GREEN)$(BOLD)║   $(CHECK) Local validation passed           ║$(RESET)\n"
 	@printf "$(GREEN)$(BOLD)╚══════════════════════════════════════╝$(RESET)\n\n"
 
 pre-release: lint test release ## Run release-oriented validation
@@ -253,7 +253,7 @@ help:
 	@/bin/echo -e "  $(GREEN)make lint$(RESET)             - fmt-check + clippy"
 	@/bin/echo -e "  $(GREEN)make fmt$(RESET)              - Format code"
 	@/bin/echo -e "  $(GREEN)make clippy$(RESET)           - Run clippy lints"
-	@/bin/echo -e "  $(GREEN)make ci$(RESET)               - $(YELLOW)$(BOLD)Full CI pipeline: lint → test → build$(RESET)"
+	@/bin/echo -e "  $(GREEN)make ci$(RESET)               - $(YELLOW)$(BOLD)Local CI-style validation: lint → test → build$(RESET)"
 	@/bin/echo -e "  $(GREEN)make pre-release$(RESET)      - Release-oriented validation"
 	@/bin/echo -e ""
 	@/bin/echo -e "$(CYAN)$(BOLD)Run:$(RESET)"
