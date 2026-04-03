@@ -53,7 +53,7 @@ read -rp "Choice [1-5]: " choice
 
 case $choice in
     1)
-        "$SCRIPT_DIR/setup-blinkenshell.sh"
+        "$SCRIPT_DIR/setup-password-account.sh"
         ;;
     2)
         "$SCRIPT_DIR/setup-icloud.sh"

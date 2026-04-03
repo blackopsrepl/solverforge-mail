@@ -143,8 +143,8 @@ Run the setup wizard:
 ```
 
 Individual account setup:
+- **Generic IMAP/SMTP**: Provider-agnostic password flow for any configured himalaya account
 - **iCloud**: Requires app-specific password from appleid.apple.com
-- **Blinkenshell**: Simple password authentication
 - **Gmail/Outlook**: OAuth2 browser flow
 
 ## Architecture
@@ -173,7 +173,7 @@ The test account always works:
 ### Authentication errors
 - **iCloud**: Need app-specific password, not Apple ID password
 - **Gmail/Outlook**: OAuth tokens expire, re-run `himalaya account configure`
-- **Blinkenshell**: Check keyring is unlocked (`kwalletd6` running)
+- **Password-based IMAP/SMTP**: Check keyring is unlocked (`kwalletd6` running)
 
 ### Keyring issues
 ```bash
@@ -212,7 +212,7 @@ make ci
 ```
 solverforge-mail/
 ├── setup-accounts.sh         # Interactive account setup wizard
-├── setup-blinkenshell.sh     # Blinkenshell password setup
+├── setup-password-account.sh # Generic password-based IMAP/SMTP setup
 ├── setup-icloud.sh           # iCloud app-specific password setup
 ├── setup-oauth.sh            # Gmail/Outlook OAuth setup
 ├── src/

@@ -158,7 +158,7 @@ install: release ## Install into SolverForge Linux (~/.local/share/solverforge)
 	@install -m755 setup-accounts.sh    $(SF_SHARE)/
 	@install -m755 setup-common.sh      $(SF_SHARE)/
 	@install -m755 setup-icloud.sh      $(SF_SHARE)/
-	@install -m755 setup-blinkenshell.sh $(SF_SHARE)/
+	@install -m755 setup-password-account.sh $(SF_SHARE)/
 	@install -m755 setup-oauth.sh       $(SF_SHARE)/
 	@install -m755 store-passwords.sh   $(SF_SHARE)/
 	@install -m755 fix-all-accounts.sh  $(SF_SHARE)/
