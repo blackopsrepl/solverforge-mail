@@ -15,12 +15,14 @@ fn ctrl(code: KeyCode) -> KeyEvent {
 fn ctx(
     focus: ComposeFocus,
     edit_mode: EditMode,
+    body_search_active: bool,
     autocomplete_visible: bool,
     confirm_discard_visible: bool,
 ) -> ComposeKeyContext {
     ComposeKeyContext {
         focus,
         edit_mode,
+        body_search_active,
         autocomplete_visible,
         confirm_discard_visible,
     }
@@ -29,9 +31,9 @@ fn ctx(
 #[test]
 fn precedence_ctrl_shortcuts_override_everything() {
     let contexts = [
-        ctx(ComposeFocus::Header, EditMode::Nav, false, false),
-        ctx(ComposeFocus::Body, EditMode::Insert, true, false),
-        ctx(ComposeFocus::ActionBar, EditMode::Nav, false, true),
+        ctx(ComposeFocus::Header, EditMode::Nav, false, false, false),
+        ctx(ComposeFocus::Body, EditMode::Insert, false, true, false),
+        ctx(ComposeFocus::ActionBar, EditMode::Nav, false, false, false),
     ];
     for c in contexts {
         assert_eq!(
@@ -43,7 +45,7 @@ fn precedence_ctrl_shortcuts_override_everything() {
 
 #[test]
 fn precedence_discard_confirm_blocks_other_layers() {
-    let c = ctx(ComposeFocus::Body, EditMode::Insert, true, true);
+    let c = ctx(ComposeFocus::Body, EditMode::Insert, false, true, true);
     assert_eq!(
         resolve_compose_with_context(key(KeyCode::Char('y')), c),
         Action::ComposeConfirmDiscard
@@ -56,11 +58,19 @@ fn precedence_discard_confirm_blocks_other_layers() {
         resolve_compose_with_context(key(KeyCode::Char('j')), c),
         Action::None
     );
+    assert_eq!(
+        resolve_compose_with_context(ctrl(KeyCode::Char('c')), c),
+        Action::None
+    );
+    assert_eq!(
+        resolve_compose_with_context(ctrl(KeyCode::Char('l')), c),
+        Action::None
+    );
 }
 
 #[test]
 fn precedence_autocomplete_intercepts_navigation_acceptance_keys() {
-    let c = ctx(ComposeFocus::Header, EditMode::Insert, true, false);
+    let c = ctx(ComposeFocus::Header, EditMode::Insert, false, true, false);
     for code in [
         KeyCode::Down,
         KeyCode::Up,
@@ -77,7 +87,7 @@ fn precedence_autocomplete_intercepts_navigation_acceptance_keys() {
 
 #[test]
 fn body_focus_passthrough_except_tab_cycle() {
-    let c = ctx(ComposeFocus::Body, EditMode::Nav, false, false);
+    let c = ctx(ComposeFocus::Body, EditMode::Nav, false, false, false);
     assert_eq!(
         resolve_compose_with_context(key(KeyCode::Char('j')), c),
         Action::EditorKey(key(KeyCode::Char('j')))
@@ -85,6 +95,10 @@ fn body_focus_passthrough_except_tab_cycle() {
     assert_eq!(
         resolve_compose_with_context(key(KeyCode::Backspace), c),
         Action::EditorKey(key(KeyCode::Backspace))
+    );
+    assert_eq!(
+        resolve_compose_with_context(key(KeyCode::Esc), c),
+        Action::EditorKey(key(KeyCode::Esc))
     );
     assert_eq!(
         resolve_compose_with_context(key(KeyCode::Tab), c),
@@ -97,27 +111,40 @@ fn body_focus_passthrough_except_tab_cycle() {
 }
 
 #[test]
-fn header_nav_mode_uses_jk_for_field_navigation() {
-    let c = ctx(ComposeFocus::Header, EditMode::Nav, false, false);
+fn body_search_tab_clears_search_before_focus_change() {
+    let c = ctx(ComposeFocus::Body, EditMode::Nav, true, false, false);
     assert_eq!(
-        resolve_compose_with_context(key(KeyCode::Char('j')), c),
+        resolve_compose_with_context(key(KeyCode::Tab), c),
+        Action::ComposeLeaveBodyNext
+    );
+    assert_eq!(
+        resolve_compose_with_context(key(KeyCode::BackTab), c),
+        Action::ComposeLeaveBodyPrev
+    );
+}
+
+#[test]
+fn non_body_up_down_cycle_fields() {
+    let c = ctx(ComposeFocus::Header, EditMode::Nav, false, false, false);
+    assert_eq!(
+        resolve_compose_with_context(key(KeyCode::Down), c),
         Action::ComposeFieldNext
     );
     assert_eq!(
-        resolve_compose_with_context(key(KeyCode::Char('k')), c),
+        resolve_compose_with_context(key(KeyCode::Up), c),
         Action::ComposeFieldPrev
     );
 }
 
 #[test]
-fn header_insert_mode_uses_jk_as_text_input() {
-    let c = ctx(ComposeFocus::Header, EditMode::Insert, false, false);
+fn header_text_is_forwarded_to_focused_field() {
+    let c = ctx(ComposeFocus::Header, EditMode::Insert, false, false, false);
     assert_eq!(
         resolve_compose_with_context(key(KeyCode::Char('j')), c),
-        Action::ComposeInput('j')
+        Action::EditorKey(key(KeyCode::Char('j')))
     );
     assert_eq!(
         resolve_compose_with_context(key(KeyCode::Char('k')), c),
-        Action::ComposeInput('k')
+        Action::EditorKey(key(KeyCode::Char('k')))
     );
 }

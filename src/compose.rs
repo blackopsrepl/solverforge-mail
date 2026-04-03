@@ -2,12 +2,11 @@
 The compose flow:
 1. Fetch a template from `himalaya template write/reply/forward`
 2. Parse into header fields + body
-3. Edit in the TUI (edtui for body, single-line inputs for headers)
+3. Edit in the TUI (compose editor for body, single-line inputs for headers)
 4. Reassemble into a template string
 5. Send via `himalaya template send` */
 
-use edtui::{EditorState, Lines};
-
+use crate::compose_editor::ComposeEditor;
 use crate::identities::Identity;
 use crate::keys::EditMode;
 
@@ -154,8 +153,8 @@ pub struct ComposeState {
     pub cc: String,
     pub bcc: String,
     pub subject: String,
-    /// edtui editor state for the message body
-    pub body: EditorState,
+    /// Compose editor state for the message body.
+    pub body: ComposeEditor,
     /// Which field has keyboard focus
     pub focused: FocusedField,
     /// Autocomplete popup, if active
@@ -184,7 +183,7 @@ impl ComposeState {
             cc: String::new(),
             bcc: String::new(),
             subject: String::new(),
-            body: EditorState::default(),
+            body: ComposeEditor::default(),
             focused: FocusedField::From,
             autocomplete: None,
             reply_to_id: None,
@@ -338,12 +337,7 @@ pub fn populate_from_template(state: &mut ComposeState, raw: &str) {
     state.bcc = headers.bcc;
     state.subject = headers.subject;
 
-    // Load body into edtui using Lines::from(&str) which handles newlines correctly.
-    state.body = if body.is_empty() {
-        EditorState::default()
-    } else {
-        EditorState::new(Lines::from(body.as_str()))
-    };
+    state.body = ComposeEditor::from_text(&body);
 
     // Focus From for new messages (so user can pick identity first),
     // body for replies (quote is already there).
@@ -389,26 +383,13 @@ pub fn reassemble_template(state: &ComposeState) -> String {
 
     out.push('\n'); // blank line separating headers from body
 
-    // Extract body text from edtui state
-    let body = extract_body(&state.body);
+    let body = state.body.text();
     out.push_str(&body);
 
     out
 }
 
-/// Extract the text content from an edtui `EditorState`.
-fn extract_body(editor: &EditorState) -> String {
-    editor
-        .lines
-        .clone()
-        .into_vecs()
-        .into_iter()
-        .map(|line| line.into_iter().collect::<String>())
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
 /// Check if the body has any non-whitespace content.
 pub fn body_is_empty(state: &ComposeState) -> bool {
-    extract_body(&state.body).trim().is_empty()
+    state.body.is_empty()
 }

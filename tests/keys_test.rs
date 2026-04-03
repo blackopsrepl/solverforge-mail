@@ -303,7 +303,7 @@ fn enter_activates_contact_edit_focused_item() {
 fn compose_enter_triggers_enter_insert() {
     assert_eq!(
         resolve(View::Compose, key(KeyCode::Enter)),
-        Action::ComposeEnterInsert
+        Action::EditorKey(key(KeyCode::Enter))
     );
 }
 
@@ -311,7 +311,7 @@ fn compose_enter_triggers_enter_insert() {
 fn compose_esc_triggers_exit_to_nav() {
     assert_eq!(
         resolve(View::Compose, key(KeyCode::Esc)),
-        Action::ComposeExitToNav
+        Action::EditorKey(key(KeyCode::Esc))
     );
 }
 
@@ -324,18 +324,10 @@ fn compose_tab_advances_field() {
 }
 
 #[test]
-fn compose_default_j_advances_field() {
+fn compose_default_text_is_forwarded() {
     assert_eq!(
         resolve(View::Compose, key(KeyCode::Char('j'))),
-        Action::ComposeFieldNext
-    );
-}
-
-#[test]
-fn compose_default_k_retreats_field() {
-    assert_eq!(
-        resolve(View::Compose, key(KeyCode::Char('k'))),
-        Action::ComposeFieldPrev
+        Action::EditorKey(key(KeyCode::Char('j')))
     );
 }
 
@@ -344,6 +336,7 @@ fn compose_body_forwards_jk_to_editor() {
     let body_ctx = ComposeKeyContext {
         focus: ComposeFocus::Body,
         edit_mode: EditMode::Nav,
+        body_search_active: false,
         autocomplete_visible: false,
         confirm_discard_visible: false,
     };
@@ -362,12 +355,13 @@ fn compose_header_insert_keeps_char_input() {
     let header_insert_ctx = ComposeKeyContext {
         focus: ComposeFocus::Header,
         edit_mode: EditMode::Insert,
+        body_search_active: false,
         autocomplete_visible: false,
         confirm_discard_visible: false,
     };
     assert_eq!(
         resolve_compose_with_context(key(KeyCode::Char('j')), header_insert_ctx),
-        Action::ComposeInput('j')
+        Action::EditorKey(key(KeyCode::Char('j')))
     );
 }
 
@@ -376,6 +370,7 @@ fn compose_confirm_discard_context_intercepts_keys() {
     let confirm_ctx = ComposeKeyContext {
         focus: ComposeFocus::Header,
         edit_mode: EditMode::Nav,
+        body_search_active: false,
         autocomplete_visible: false,
         confirm_discard_visible: true,
     };

@@ -38,7 +38,7 @@ SF_SHARE := $(SF_HOME)/mail
 
 # ── Phony Targets ─────────────────────────────────────────────────────────────
 
-.PHONY: help build release debug check clippy fmt fmt-check test lint ci
+.PHONY: help build release debug check clippy fmt fmt-check test lint ci pre-release version
 .PHONY: dev run run-account
 .PHONY: install uninstall setup accounts
 .PHONY: clean dist-clean loc info deps-check himalaya-check
@@ -118,6 +118,12 @@ ci: lint test release ## Full CI pipeline: lint → test → build
 	@printf "$(GREEN)$(BOLD)╔══════════════════════════════════════╗$(RESET)\n"
 	@printf "$(GREEN)$(BOLD)║      $(CHECK) CI pipeline passed             ║$(RESET)\n"
 	@printf "$(GREEN)$(BOLD)╚══════════════════════════════════════╝$(RESET)\n\n"
+
+pre-release: lint test release ## Run release-oriented validation
+	@printf "$(GREEN)$(BOLD)╔══════════════════════════════════════╗$(RESET)\n"
+	@printf "$(GREEN)$(BOLD)║   $(CHECK) Pre-release checks passed        ║$(RESET)\n"
+	@printf "$(GREEN)$(BOLD)╚══════════════════════════════════════╝$(RESET)\n"
+	@printf "$(GREEN)$(BOLD)Ready for release: v$(VERSION)$(RESET)\n\n"
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  RUN
@@ -227,6 +233,9 @@ info: ## Show project info
 	@printf "  $(GRAY)install→$(RESET)   %s\n" "$(SF_BIN)/$(NAME)"
 	@echo
 
+version: ## Print the current crate version
+	@printf "$(YELLOW)$(BOLD)%s$(RESET)\n" "$(VERSION)"
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  HELP
 # ══════════════════════════════════════════════════════════════════════════════
@@ -245,6 +254,7 @@ help:
 	@/bin/echo -e "  $(GREEN)make fmt$(RESET)              - Format code"
 	@/bin/echo -e "  $(GREEN)make clippy$(RESET)           - Run clippy lints"
 	@/bin/echo -e "  $(GREEN)make ci$(RESET)               - $(YELLOW)$(BOLD)Full CI pipeline: lint → test → build$(RESET)"
+	@/bin/echo -e "  $(GREEN)make pre-release$(RESET)      - Release-oriented validation"
 	@/bin/echo -e ""
 	@/bin/echo -e "$(CYAN)$(BOLD)Run:$(RESET)"
 	@/bin/echo -e "  $(GREEN)make dev$(RESET)              - Build debug + run"
@@ -261,6 +271,7 @@ help:
 	@/bin/echo -e "  $(GREEN)make clean$(RESET)            - Remove build artifacts"
 	@/bin/echo -e "  $(GREEN)make info$(RESET)             - Show project info"
 	@/bin/echo -e "  $(GREEN)make loc$(RESET)              - Count lines of code"
+	@/bin/echo -e "  $(GREEN)make version$(RESET)          - Print crate version"
 	@/bin/echo -e ""
 	@/bin/echo -e "$(GRAY)Current version: v$(VERSION)$(RESET)"
 	@/bin/echo -e ""

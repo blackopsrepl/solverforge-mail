@@ -667,12 +667,14 @@ impl App {
                     | FocusedField::Discard => ComposeFocus::ActionBar,
                 },
                 edit_mode: cs.edit_mode,
+                body_search_active: cs.body.is_search_active(),
                 autocomplete_visible: cs.autocomplete.is_some(),
                 confirm_discard_visible: cs.confirm_discard,
             })
             .unwrap_or(ComposeKeyContext {
                 focus: ComposeFocus::Header,
                 edit_mode: EditMode::Nav,
+                body_search_active: false,
                 autocomplete_visible: false,
                 confirm_discard_visible: false,
             })
@@ -736,6 +738,20 @@ impl App {
             }
             Action::ComposeFieldPrev => {
                 if let Some(ref mut cs) = self.compose_state {
+                    cs.autocomplete = None;
+                    cs.focused = cs.focused.prev();
+                }
+            }
+            Action::ComposeLeaveBodyNext => {
+                if let Some(ref mut cs) = self.compose_state {
+                    cs.body.clear_search();
+                    cs.autocomplete = None;
+                    cs.focused = cs.focused.next();
+                }
+            }
+            Action::ComposeLeaveBodyPrev => {
+                if let Some(ref mut cs) = self.compose_state {
+                    cs.body.clear_search();
                     cs.autocomplete = None;
                     cs.focused = cs.focused.prev();
                 }
@@ -818,7 +834,7 @@ impl App {
                 self.compose_exit_to_nav();
             }
 
-            // ── EditorKey: forwarded to edtui for body editing ───────
+            // ── EditorKey: forwarded to the focused compose field ────
             Action::EditorKey(key_event) => {
                 self.handle_editor_key(key_event);
             }
@@ -1103,11 +1119,7 @@ impl App {
         }
     }
 
-    /// Enter Insert mode on the focused compose field.
-    /// - On text header fields (To/Cc/Bcc/Subject): switch to Insert mode.
-    /// - On From: cycle identity (same as before).
-    /// - On Body: pass Enter to edtui (enters its insert mode).
-    /// - On action buttons (Send/Draft/Attach/Discard): activate the button.
+    /// Activate the focused compose control.
     fn compose_enter_insert(&mut self) {
         // Grab focused + confirm_discard without keeping a borrow on self.
         let (focused, confirm_discard) = match self.compose_state.as_ref() {
@@ -1125,20 +1137,10 @@ impl App {
             }
             FocusedField::To | FocusedField::Cc | FocusedField::Bcc | FocusedField::Subject => {
                 if let Some(ref mut cs) = self.compose_state {
-                    cs.edit_mode = EditMode::Insert;
+                    cs.focused = cs.focused.next();
                 }
             }
-            FocusedField::Body => {
-                // Pass an Enter key to edtui to trigger its insert mode
-                use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-                use edtui::EditorEventHandler;
-                let key = KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE);
-                let mut handler = EditorEventHandler::default();
-                if let Some(ref mut cs) = self.compose_state {
-                    handler.on_key_event(key, &mut cs.body);
-                    cs.dirty = true;
-                }
-            }
+            FocusedField::Body => {}
             FocusedField::Send => {
                 self.compose_send();
             }
@@ -1151,8 +1153,7 @@ impl App {
         }
     }
 
-    /// Exit Insert mode back to Nav. In body (edtui), send Esc to edtui.
-    /// On action buttons: move focus back to Body.
+    /// Exit the focused compose control back to the body.
     fn compose_exit_to_nav(&mut self) {
         let Some(ref mut cs) = self.compose_state else {
             return;
@@ -1163,28 +1164,13 @@ impl App {
             return;
         }
         match cs.focused {
-            FocusedField::To | FocusedField::Cc | FocusedField::Bcc | FocusedField::Subject => {
-                cs.edit_mode = EditMode::Nav;
-            }
-            FocusedField::From => {
-                cs.edit_mode = EditMode::Nav;
-            }
-            FocusedField::Body => {
-                // Send Esc to edtui to exit its insert mode
-                use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-                use edtui::EditorEventHandler;
-                let key = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
-                let mut handler = EditorEventHandler::default();
-                handler.on_key_event(key, &mut cs.body);
-            }
             FocusedField::Send
             | FocusedField::Draft
             | FocusedField::Attach
             | FocusedField::Discard => {
-                // Esc on action bar → jump back to Body
                 cs.focused = FocusedField::Body;
-                cs.edit_mode = EditMode::Nav;
             }
+            _ => {}
         }
     }
 
@@ -1335,16 +1321,7 @@ impl App {
 
     // ── Editor key forwarding ────────────────────────────────────────
 
-    /// Forward a raw key event to edtui for body editing, or handle special
-    /// key interactions that require direct state access (From field cycle,
-    /// autocomplete navigation).
-    ///
-    /// In the new modal scheme most compose input is handled via named Actions
-    /// (ComposeInput, ComposeBackspace, ComposeEnterInsert, ComposeExitToNav).
-    /// EditorKey passthrough is now primarily for:
-    ///   - From field: arrow/space cycling (not caught by resolve_compose)
-    ///   - Autocomplete: j/k navigation inside the popup
-    ///   - Body: full edtui passthrough for vim-style editing
+    /// Handle focused compose field input.
     fn handle_editor_key(&mut self, key: crossterm::event::KeyEvent) {
         use crossterm::event::KeyCode;
 
@@ -1356,13 +1333,12 @@ impl App {
             return;
         };
 
-        // ── From field: cycle through identities ─────────────────────
         if cs.focused == FocusedField::From {
             match key.code {
-                KeyCode::Char(' ') | KeyCode::Right | KeyCode::Char('l') => {
+                KeyCode::Char(' ') | KeyCode::Right | KeyCode::Enter => {
                     cs.cycle_from_next();
                 }
-                KeyCode::Left | KeyCode::Char('h') => {
+                KeyCode::Left => {
                     cs.cycle_from_prev();
                 }
                 _ => {}
@@ -1370,16 +1346,15 @@ impl App {
             return;
         }
 
-        // ── Autocomplete popup navigation (header fields in Insert mode) ──
         if cs.autocomplete.is_some() && cs.is_header_focused() {
             match key.code {
-                KeyCode::Down | KeyCode::Char('j') => {
+                KeyCode::Down => {
                     if let Some(ref mut ac) = cs.autocomplete {
                         ac.move_down();
                     }
                     return;
                 }
-                KeyCode::Up | KeyCode::Char('k') => {
+                KeyCode::Up => {
                     if let Some(ref mut ac) = cs.autocomplete {
                         ac.move_up();
                     }
@@ -1412,12 +1387,55 @@ impl App {
             }
         }
 
-        // ── Body: forward to edtui ────────────────────────────────────
+        if matches!(
+            cs.focused,
+            FocusedField::To | FocusedField::Cc | FocusedField::Bcc | FocusedField::Subject
+        ) {
+            let is_address = matches!(
+                cs.focused,
+                FocusedField::To | FocusedField::Cc | FocusedField::Bcc
+            );
+            let mut modified = false;
+            let mut move_focus = false;
+            if let Some(field) = cs.focused_line_field_mut() {
+                match key.code {
+                    KeyCode::Char(c)
+                        if !key.modifiers.intersects(
+                            crossterm::event::KeyModifiers::CONTROL
+                                | crossterm::event::KeyModifiers::ALT,
+                        ) =>
+                    {
+                        field.push(c);
+                        modified = true;
+                    }
+                    KeyCode::Backspace => {
+                        modified = field.pop().is_some();
+                    }
+                    KeyCode::Enter => {
+                        move_focus = true;
+                    }
+                    _ => {}
+                }
+            }
+            if modified {
+                cs.dirty = true;
+            }
+            if move_focus {
+                cs.autocomplete = None;
+                cs.focused = cs.focused.next();
+            }
+            let _ = cs;
+            if is_address && modified {
+                self.update_autocomplete();
+            }
+            return;
+        }
+
         if cs.focused == FocusedField::Body {
-            use edtui::EditorEventHandler;
-            let mut handler = EditorEventHandler::default();
-            handler.on_key_event(key, &mut cs.body);
-            cs.dirty = true;
+            let result = cs.body.handle_key(key);
+            if result.text_modified {
+                cs.dirty = true;
+            }
         }
     }
 

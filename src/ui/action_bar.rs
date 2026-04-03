@@ -55,7 +55,19 @@ pub fn render_action_bar(
         EditMode::Nav => (" -- NAV -- ", t.mode_nav()),
         EditMode::Insert => (" -- INSERT -- ", t.mode_insert()),
     };
-    let pill_width = mode_text.chars().count() as u16;
+    render_action_bar_with_label(frame, area, mode_text, mode_style, buttons, focused_idx);
+}
+
+pub fn render_action_bar_with_label(
+    frame: &mut Frame,
+    area: Rect,
+    label: &str,
+    label_style: Style,
+    buttons: &[Button<'_>],
+    focused_idx: Option<usize>,
+) {
+    let t = theme();
+    let pill_width = label.chars().count() as u16;
     let sep_width = 1u16; // │ separator
 
     // ── Split area: pill | separator | tabs ──────────────────────────
@@ -68,7 +80,7 @@ pub fn render_action_bar(
 
     // Mode pill
     frame.render_widget(
-        ratatui::widgets::Paragraph::new(mode_text).style(mode_style),
+        ratatui::widgets::Paragraph::new(label).style(label_style),
         cols[0],
     );
 
