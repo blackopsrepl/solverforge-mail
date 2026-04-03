@@ -1,12 +1,19 @@
-<p align="center">
-  <img src="assets/mascot.png" alt="SolverForge Mail mascot" width="240">
-</p>
+<div align="center">
+
+  <img src="assets/mascot.png" alt="SolverForge Mail mascot" width="320" />
+
+  <br />
+
+  [![CI](https://github.com/blackopsrepl/solverforge-mail/actions/workflows/ci.yml/badge.svg?style=for-the-badge)](https://github.com/blackopsrepl/solverforge-mail/actions/workflows/ci.yml)
+  [![Version](https://img.shields.io/badge/version-v0.2.0-00E6A8?style=for-the-badge)](https://github.com/blackopsrepl/solverforge-mail)
+  [![Rust](https://img.shields.io/badge/rust-stable-orange?style=for-the-badge)](https://www.rust-lang.org)
+  [![Built With Ratatui](https://img.shields.io/badge/built%20with-ratatui-5A54FF?style=for-the-badge)](https://ratatui.rs/)
+
+</div>
 
 # SolverForge Mail
 
 A spiffy ratatui-based TUI email client that wraps the himalaya CLI.
-
-Current release target: `v0.2.0`
 
 ## Quick Start
 
@@ -194,8 +201,7 @@ cargo run -- --account test
 
 ## CI Status
 
-There is currently no hosted CI configured for this repository.
-The project has a local validation target instead:
+GitHub Actions now runs the same core validation as local development:
 
 ```bash
 make ci
