@@ -87,7 +87,7 @@ fn tab_to_save_saves_identity_edit_form() {
 
     // Set up an in-memory DB with the full schema.
     let conn = Connection::open_in_memory().unwrap();
-    solverforge_mail::db::migrate_for_test(&conn).unwrap();
+    solverforge_mail::db::init_for_test(&conn).unwrap();
 
     let mut app = App::new(Some("testaccount".to_string()));
     app.db = Some(conn);

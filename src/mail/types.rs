@@ -1,0 +1,217 @@
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Account {
+    pub name: String,
+    pub backend: String,
+    pub default: bool,
+}
+
+pub fn is_local_maildir_account(account: &Account) -> bool {
+    account.backend.eq_ignore_ascii_case("maildir")
+}
+
+pub fn preferred_account(accounts: &[Account]) -> Option<&Account> {
+    accounts
+        .iter()
+        .find(|account| account.default)
+        .or_else(|| {
+            accounts
+                .iter()
+                .find(|account| !is_local_maildir_account(account))
+        })
+        .or_else(|| accounts.first())
+}
+
+pub fn sort_accounts(accounts: &mut [Account]) {
+    accounts.sort_by(|left, right| {
+        right
+            .default
+            .cmp(&left.default)
+            .then_with(|| is_local_maildir_account(left).cmp(&is_local_maildir_account(right)))
+            .then_with(|| left.name.cmp(&right.name))
+    });
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Folder {
+    pub name: String,
+    pub desc: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Envelope {
+    pub id: String,
+    pub flags: Vec<String>,
+    pub subject: String,
+    pub sender: Sender,
+    pub date: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum Sender {
+    Plain(String),
+    Structured {
+        name: Option<String>,
+        addr: Option<String>,
+    },
+    #[default]
+    Unknown,
+}
+
+impl Sender {
+    pub fn display(&self) -> String {
+        match self {
+            Sender::Plain(s) => s.clone(),
+            Sender::Structured { name, addr } => {
+                if let Some(name) = name {
+                    if !name.is_empty() {
+                        return name.clone();
+                    }
+                }
+                addr.clone().unwrap_or_default()
+            }
+            Sender::Unknown => String::new(),
+        }
+    }
+}
+
+impl std::fmt::Display for Sender {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.display())
+    }
+}
+
+impl Envelope {
+    pub fn is_seen(&self) -> bool {
+        self.flags
+            .iter()
+            .any(|flag| flag.eq_ignore_ascii_case("seen"))
+    }
+
+    pub fn is_flagged(&self) -> bool {
+        self.flags
+            .iter()
+            .any(|flag| flag.eq_ignore_ascii_case("flagged"))
+    }
+
+    pub fn is_answered(&self) -> bool {
+        self.flags
+            .iter()
+            .any(|flag| flag.eq_ignore_ascii_case("answered"))
+    }
+
+    pub fn flag_icon(&self) -> &'static str {
+        if self.is_flagged() {
+            "!"
+        } else if !self.is_seen() {
+            "\u{25cf}"
+        } else if self.is_answered() {
+            "\u{21a9}"
+        } else {
+            " "
+        }
+    }
+
+    pub fn sender_display(&self) -> String {
+        self.sender.display()
+    }
+}
+
+impl From<crate::himalaya::types::Account> for Account {
+    fn from(value: crate::himalaya::types::Account) -> Self {
+        Self {
+            name: value.name,
+            backend: value.backend,
+            default: value.default,
+        }
+    }
+}
+
+impl From<crate::himalaya::types::Folder> for Folder {
+    fn from(value: crate::himalaya::types::Folder) -> Self {
+        Self {
+            name: value.name,
+            desc: value.desc,
+        }
+    }
+}
+
+impl From<crate::himalaya::types::Sender> for Sender {
+    fn from(value: crate::himalaya::types::Sender) -> Self {
+        match value {
+            crate::himalaya::types::Sender::Plain(s) => Sender::Plain(s),
+            crate::himalaya::types::Sender::Structured { name, addr } => {
+                Sender::Structured { name, addr }
+            }
+            crate::himalaya::types::Sender::Unknown => Sender::Unknown,
+        }
+    }
+}
+
+impl From<crate::himalaya::types::Envelope> for Envelope {
+    fn from(value: crate::himalaya::types::Envelope) -> Self {
+        Self {
+            id: value.id,
+            flags: value.flags,
+            subject: value.subject,
+            sender: value.sender.into(),
+            date: value.date,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{preferred_account, sort_accounts, Account};
+
+    #[test]
+    fn preferred_account_uses_real_account_before_local_test_fallback() {
+        let accounts = vec![
+            Account {
+                name: "test".to_string(),
+                backend: "maildir".to_string(),
+                default: false,
+            },
+            Account {
+                name: "work".to_string(),
+                backend: "imap".to_string(),
+                default: false,
+            },
+        ];
+
+        assert_eq!(
+            preferred_account(&accounts).map(|account| account.name.as_str()),
+            Some("work")
+        );
+    }
+
+    #[test]
+    fn sort_accounts_keeps_real_accounts_ahead_of_local_maildir_fallbacks() {
+        let mut accounts = vec![
+            Account {
+                name: "test".to_string(),
+                backend: "maildir".to_string(),
+                default: false,
+            },
+            Account {
+                name: "zeta".to_string(),
+                backend: "imap".to_string(),
+                default: false,
+            },
+            Account {
+                name: "alpha".to_string(),
+                backend: "imap".to_string(),
+                default: false,
+            },
+        ];
+
+        sort_accounts(&mut accounts);
+
+        assert_eq!(
+            accounts
+                .iter()
+                .map(|account| account.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["alpha", "zeta", "test"]
+        );
+    }
+}

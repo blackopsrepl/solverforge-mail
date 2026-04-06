@@ -1,15 +1,15 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 
 use super::config::{account_args, global_args, himalaya_bin};
 use super::types::*;
 
 // Run a himalaya command and return its stdout.
 fn run(args: &[String]) -> Result<String> {
-    let bin = himalaya_bin();
-    let output = Command::new(bin)
+    let bin = himalaya_bin()?;
+    let output = Command::new(&bin)
         .args(args)
         .output()
         .with_context(|| format!("failed to execute: {} {}", bin.display(), args.join(" ")))?;
@@ -32,8 +32,8 @@ fn run(args: &[String]) -> Result<String> {
 himalaya's `template send` checks `io::stdin().is_terminal()` and reads
 from stdin when it is not a terminal (i.e. when spawned as a subprocess). */
 fn run_with_stdin(args: &[String], input: &str) -> Result<String> {
-    let bin = himalaya_bin();
-    let mut child = Command::new(bin)
+    let bin = himalaya_bin()?;
+    let mut child = Command::new(&bin)
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -69,11 +69,11 @@ fn run_with_stdin(args: &[String], input: &str) -> Result<String> {
 
 // Build the shell command string for compose/reply/forward operations
 // that need to shell out to $EDITOR.
-fn editor_command(args: &[String]) -> String {
-    let bin = himalaya_bin();
+fn editor_command(args: &[String]) -> Result<String> {
+    let bin = himalaya_bin()?;
     let mut parts = vec![bin.display().to_string()];
     parts.extend(args.iter().cloned());
-    parts.join(" ")
+    Ok(parts.join(" "))
 }
 
 // ── Account operations ──────────────────────────────────────────────
@@ -86,6 +86,40 @@ pub fn list_accounts() -> Result<Vec<Account>> {
     let accounts: Vec<Account> =
         serde_json::from_str(&output).context("failed to parse account list")?;
     Ok(accounts)
+}
+
+/// List configured account names only.
+pub fn list_account_names() -> Result<Vec<String>> {
+    Ok(list_accounts()?
+        .into_iter()
+        .map(|account| account.name)
+        .collect())
+}
+
+/// Probe whether an account can list folders successfully.
+pub fn probe_account(account: &str) -> Result<()> {
+    list_folders(Some(account)).map(|_| ())
+}
+
+/// Run Himalaya's interactive account configuration flow.
+pub fn configure_account(account: &str) -> Result<()> {
+    let bin = himalaya_bin()?;
+    let status = Command::new(&bin)
+        .args(["account", "configure", account])
+        .status()
+        .with_context(|| {
+            format!(
+                "failed to execute: {} account configure {}",
+                bin.display(),
+                account
+            )
+        })?;
+
+    if !status.success() {
+        bail!("himalaya error: account configure exited with {}", status);
+    }
+
+    Ok(())
 }
 
 // ── Folder operations ───────────────────────────────────────────────
@@ -267,7 +301,7 @@ pub fn download_attachments(account: Option<&str>, folder: &str, id: &str) -> Re
 // These return shell command strings to be executed outside raw mode.
 
 /// Build the command to compose a new message.
-pub fn compose_command(account: Option<&str>) -> String {
+pub fn compose_command(account: Option<&str>) -> Result<String> {
     let mut args = vec![];
     args.extend(["message".to_string(), "write".to_string()]);
     args.extend(account_args(account));
@@ -275,7 +309,7 @@ pub fn compose_command(account: Option<&str>) -> String {
 }
 
 /// Build the command to reply to a message.
-pub fn reply_command(account: Option<&str>, folder: &str, id: &str, all: bool) -> String {
+pub fn reply_command(account: Option<&str>, folder: &str, id: &str, all: bool) -> Result<String> {
     let mut args = vec![];
     args.extend(["message".to_string(), "reply".to_string()]);
     args.extend(account_args(account));
@@ -288,7 +322,7 @@ pub fn reply_command(account: Option<&str>, folder: &str, id: &str, all: bool) -
 }
 
 /// Build the command to forward a message.
-pub fn forward_command(account: Option<&str>, folder: &str, id: &str) -> String {
+pub fn forward_command(account: Option<&str>, folder: &str, id: &str) -> Result<String> {
     let mut args = vec![];
     args.extend(["message".to_string(), "forward".to_string()]);
     args.extend(account_args(account));

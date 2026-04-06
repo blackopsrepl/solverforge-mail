@@ -8,12 +8,11 @@ use crate::compose::{populate_from_template, ComposeMode, ComposeState, FocusedF
 use crate::contact_edit::ContactEditState;
 use crate::contacts::Contact;
 use crate::db;
-use crate::himalaya::client;
-use crate::himalaya::types::*;
 use crate::identities::Identity;
 use crate::identity_edit::IdentityEditState;
 use crate::keys::EditMode;
 use crate::keys::{self, Action, ComposeFocus, ComposeKeyContext, View};
+use crate::mail::types::*;
 use crate::worker::{Worker, WorkerResult};
 
 // Page size for envelope listing.
@@ -21,62 +20,6 @@ const PAGE_SIZE: usize = 50;
 
 // Auto-refresh interval in ticks (250ms each). 240 ticks = 60 seconds.
 const AUTO_REFRESH_TICKS: u64 = 240;
-
-// Strip ANSI escape sequences from a string (himalaya stderr has colors).
-fn strip_ansi(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut chars = s.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c == '\x1b' {
-            // Skip CSI sequences: ESC [ ... final_byte
-            if chars.peek() == Some(&'[') {
-                chars.next(); // consume '['
-                while let Some(&next) = chars.peek() {
-                    chars.next();
-                    // CSI sequence ends at 0x40-0x7E
-                    if ('@'..='~').contains(&next) {
-                        break;
-                    }
-                }
-            }
-        } else {
-            out.push(c);
-        }
-    }
-    out
-}
-
-/* Extract a clean error message from himalaya's verbose error chain.
-Himalaya outputs numbered error lines like:
-0: cannot build IMAP client
-1: cannot authenticate to IMAP server
-We take the first line (most relevant) and strip the number prefix. */
-fn clean_error(raw: &str) -> String {
-    let stripped = strip_ansi(raw);
-    // Find the "himalaya error:" prefix if present
-    let body = stripped
-        .strip_prefix("himalaya error: ")
-        .unwrap_or(&stripped);
-
-    // Look for numbered error lines
-    for line in body.lines() {
-        let trimmed = line.trim();
-        // Match patterns like "0: message" or "Error: message"
-        if let Some(rest) = trimmed.strip_prefix("0: ") {
-            return rest.trim().to_string();
-        }
-        if let Some(rest) = trimmed.strip_prefix("Error: ") {
-            return rest.trim().to_string();
-        }
-    }
-
-    // Fallback: first non-empty line
-    body.lines()
-        .map(|l| l.trim())
-        .find(|l| !l.is_empty())
-        .unwrap_or("unknown error")
-        .to_string()
-}
 
 /// Top-level application state (TEA model).
 pub struct App {
@@ -265,11 +208,6 @@ impl App {
         self.status_is_error = true;
     }
 
-    /// Currently selected account name for himalaya commands.
-    fn acct(&self) -> Option<&str> {
-        self.account_name.as_deref()
-    }
-
     /// Owned account name for passing to worker threads.
     fn acct_owned(&self) -> Option<String> {
         self.account_name.clone()
@@ -297,28 +235,28 @@ impl App {
                 }
                 WorkerResult::Accounts(Err(e)) => {
                     self.loading = false;
-                    self.set_error(&format!("Failed to load accounts: {}", clean_error(&e)));
+                    self.set_error(&format!("Failed to load accounts: {e}"));
                 }
                 WorkerResult::Folders(Ok(folders)) => {
                     self.handle_folders_loaded(folders);
                 }
                 WorkerResult::Folders(Err(e)) => {
                     self.loading = false;
-                    self.set_error(&format!("Failed to load folders: {}", clean_error(&e)));
+                    self.set_error(&format!("Failed to load folders: {e}"));
                 }
                 WorkerResult::Envelopes(Ok(envelopes)) => {
                     self.handle_envelopes_loaded(envelopes);
                 }
                 WorkerResult::Envelopes(Err(e)) => {
                     self.loading = false;
-                    self.set_error(&format!("Failed to load envelopes: {}", clean_error(&e)));
+                    self.set_error(&format!("Failed to load envelopes: {e}"));
                 }
                 WorkerResult::Message(Ok(body)) => {
                     self.handle_message_loaded(body);
                 }
                 WorkerResult::Message(Err(e)) => {
                     self.loading = false;
-                    self.set_error(&format!("Failed to read message: {}", clean_error(&e)));
+                    self.set_error(&format!("Failed to read message: {e}"));
                 }
                 WorkerResult::ActionDone(Ok(msg)) => {
                     self.loading = false;
@@ -334,7 +272,7 @@ impl App {
                 }
                 WorkerResult::ActionDone(Err(e)) => {
                     self.loading = false;
-                    self.set_error(&format!("Error: {}", clean_error(&e)));
+                    self.set_error(&format!("Error: {e}"));
                     self.pending_return_to_list = false;
                     self.pending_refresh_after_action = false;
                 }
@@ -350,12 +288,7 @@ impl App {
                 }
                 WorkerResult::Template(Err(e)) => {
                     self.loading = false;
-                    // If template fetch fails, fall back to shell-out compose
-                    self.set_error(&format!("Template error: {}", clean_error(&e)));
-                    // Restore compose shell-out as fallback
-                    if self.compose_state.is_none() {
-                        self.pending_shell = Some(client::compose_command(self.acct()));
-                    }
+                    self.set_error(&format!("Template error: {e}"));
                     self.compose_state = None;
                 }
                 WorkerResult::SendDone(Ok(msg)) => {
@@ -368,7 +301,7 @@ impl App {
                 WorkerResult::SendDone(Err(e)) => {
                     self.loading = false;
                     if let Some(ref mut cs) = self.compose_state {
-                        cs.send_error = Some(clean_error(&e));
+                        cs.send_error = Some(e.to_string());
                     }
                 }
             }
@@ -385,10 +318,8 @@ impl App {
     fn handle_accounts_loaded(&mut self, accounts: Vec<Account>) {
         // If no account was specified on the CLI, use the default.
         if self.account_name.is_none() {
-            if let Some(default) = accounts.iter().find(|a| a.default) {
-                self.account_name = Some(default.name.clone());
-            } else if let Some(first) = accounts.first() {
-                self.account_name = Some(first.name.clone());
+            if let Some(account) = preferred_account(&accounts) {
+                self.account_name = Some(account.name.clone());
             }
         }
         // Set account_index to match account_name
@@ -1946,29 +1877,26 @@ impl App {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::himalaya::diagnostics as himalaya_diagnostics;
 
     #[test]
-    fn strip_ansi_removes_escape_codes() {
-        let input = "\x1b[91mcannot build IMAP client\x1b[0m";
-        assert_eq!(strip_ansi(input), "cannot build IMAP client");
+    fn explain_himalaya_error_flags_maildir_as_non_auth() {
+        let raw = "himalaya error: cannot open local maildir";
+        let explained = himalaya_diagnostics::explain(Some("maildir"), raw);
+        assert!(explained.contains("not an authentication error"));
     }
 
     #[test]
-    fn strip_ansi_preserves_plain_text() {
-        let input = "hello world";
-        assert_eq!(strip_ansi(input), "hello world");
+    fn explain_himalaya_error_flags_keyring_failures() {
+        let raw = "himalaya error: failed to talk to Secret Service keyring";
+        let explained = himalaya_diagnostics::explain(Some("imap"), raw);
+        assert!(explained.contains("Keyring secret missing or inaccessible"));
     }
 
     #[test]
-    fn clean_error_extracts_first_error() {
-        let raw = "himalaya error: \n   0: \x1b[91mcannot build IMAP client\x1b[0m\n   1: \x1b[91mcannot authenticate\x1b[0m\n";
-        assert_eq!(clean_error(raw), "cannot build IMAP client");
-    }
-
-    #[test]
-    fn clean_error_handles_simple_message() {
-        let raw = "something went wrong";
-        assert_eq!(clean_error(raw), "something went wrong");
+    fn explain_himalaya_error_flags_oauth_failures() {
+        let raw = "himalaya error: invalid_grant while refreshing oauth token";
+        let explained = himalaya_diagnostics::explain(Some("imap"), raw);
+        assert!(explained.contains("OAuth credentials need reconfiguration"));
     }
 }

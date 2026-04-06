@@ -28,7 +28,6 @@ NAME     := solverforge-mail
 VERSION  := $(shell grep -m1 '^version' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
 BIN      := target/release/$(NAME)
 BIN_DBG  := target/debug/$(NAME)
-HIMALAYA := $(HOME)/.local/share/solverforge/bin/solverforge-himalaya
 
 # ── Install Paths (SolverForge Linux framework) ───────────────────────────────
 
@@ -41,7 +40,7 @@ SF_SHARE := $(SF_HOME)/mail
 .PHONY: help build release debug check clippy fmt fmt-check test lint ci pre-release version
 .PHONY: dev run run-account
 .PHONY: install uninstall setup accounts
-.PHONY: clean dist-clean loc info deps-check himalaya-check
+.PHONY: clean dist-clean loc info deps-check
 
 .DEFAULT_GOAL := help
 
@@ -156,13 +155,6 @@ install: release ## Install into SolverForge Linux (~/.local/share/solverforge)
 	@printf "$(PROGRESS) Installing setup scripts → $(SF_SHARE)/\n"
 	@install -d $(SF_SHARE)
 	@install -m755 setup-accounts.sh    $(SF_SHARE)/
-	@install -m755 setup-common.sh      $(SF_SHARE)/
-	@install -m755 setup-icloud.sh      $(SF_SHARE)/
-	@install -m755 setup-password-account.sh $(SF_SHARE)/
-	@install -m755 setup-oauth.sh       $(SF_SHARE)/
-	@install -m755 store-passwords.sh   $(SF_SHARE)/
-	@install -m755 fix-all-accounts.sh  $(SF_SHARE)/
-	@install -m755 setup.py             $(SF_SHARE)/
 	@printf "$(GREEN)$(CHECK) Setup scripts installed$(RESET)\n"
 	@printf "\n$(GREEN)$(BOLD)$(CHECK) Installed $(NAME) v$(VERSION) into SolverForge$(RESET)\n\n"
 
@@ -177,14 +169,13 @@ uninstall: ## Remove from SolverForge Linux
 #  SETUP
 # ══════════════════════════════════════════════════════════════════════════════
 
-setup: ## Interactive account setup wizard
+setup: release ## Interactive account setup wizard
 	@printf "$(ARROW) Launching account setup wizard...\n"
-	@python3 setup.py
+	@./$(BIN) --setup
 
-accounts: ## List configured email accounts
-	@printf "$(PROGRESS) Querying himalaya...\n"
-	@$(HIMALAYA) account list 2>/dev/null || \
-		(printf "$(RED)$(CROSS) No accounts configured — run 'make setup'$(RESET)\n" && exit 1)
+accounts: release ## List configured email accounts and their status
+	@printf "$(PROGRESS) Querying SolverForge Mail runtime...\n"
+	@./$(BIN) --accounts
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  HOUSEKEEPING
@@ -208,11 +199,6 @@ deps-check: ## Verify build dependencies
 	@command -v cargo >/dev/null 2>&1 || \
 		(printf "$(RED)$(CROSS) cargo not found — install Rust via https://rustup.rs$(RESET)\n" && exit 1)
 
-himalaya-check: ## Verify himalaya is available
-	@test -x $(HIMALAYA) || \
-		(printf "$(RED)$(CROSS) himalaya not found at $(HIMALAYA)$(RESET)\n" && exit 1)
-	@printf "$(GREEN)$(CHECK) himalaya found$(RESET)\n"
-
 loc: ## Count lines of code
 	$(call banner)
 	@printf "  $(GRAY)%-30s %s$(RESET)\n" 'File' 'Lines'
@@ -228,7 +214,6 @@ info: ## Show project info
 	@printf "  $(GRAY)version$(RESET)    %s\n" "$(VERSION)"
 	@printf "  $(GRAY)rustc$(RESET)      %s\n" "$$(rustc --version 2>/dev/null || echo 'not found')"
 	@printf "  $(GRAY)cargo$(RESET)      %s\n" "$$(cargo --version 2>/dev/null || echo 'not found')"
-	@printf "  $(GRAY)himalaya$(RESET)   %s\n" "$$($(HIMALAYA) --version 2>/dev/null || echo 'not found')"
 	@printf "  $(GRAY)binary$(RESET)     %s\n" "$(BIN)"
 	@printf "  $(GRAY)install→$(RESET)   %s\n" "$(SF_BIN)/$(NAME)"
 	@echo

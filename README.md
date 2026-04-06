@@ -23,7 +23,7 @@ cargo run -- --account test
 cargo run -- --account icloud
 
 # Set up accounts
-./setup-accounts.sh
+cargo run -- --setup
 ```
 
 ## Features
@@ -41,8 +41,8 @@ cargo run -- --account icloud
 - **Contact import** - vCard (.vcf) and Google CSV import
 - **Auto-harvest contacts** - Captured from sent/received mail
 - **Sender identities** - Multiple From addresses per account with default
-- **Local SQLite database** - Contacts, identities, credentials stored in `~/.local/share/solverforge/mail.db`
-- **Credential management** - Passwords and OAuth tokens in DB (no keyring dependency)
+- **Local SQLite database** - Contacts and identities stored in `~/.local/share/solverforge/mail.db`
+- **Himalaya-managed auth** - Passwords, OAuth tokens, and GPG commands come from Himalaya's own config and secret backends
 
 ## Keybindings
 
@@ -133,19 +133,20 @@ The app supports multiple account types:
 ### Test Account (Local Maildir)
 Already configured with sample emails:
 ```bash
-./solverforge-mail test
+cargo run -- --account test
 ```
 
 ### Real Accounts
 Run the setup wizard:
 ```bash
-./setup-accounts.sh
+cargo run -- --setup
 ```
 
-Individual account setup:
-- **Generic IMAP/SMTP**: Provider-agnostic password flow for any configured himalaya account
-- **iCloud**: Requires app-specific password from appleid.apple.com
-- **Gmail/Outlook**: OAuth2 browser flow
+Supported setup flows inside the wizard:
+- **Generic IMAP/SMTP**: Store keyring secrets for any configured Himalaya account
+- **iCloud**: App-specific password flow, with optional `~/.authinfo.gpg` rewrite
+- **Gmail/Outlook**: OAuth2 browser flow, including first-time config bootstrap
+- **Auth source of truth**: Himalaya itself, including `HIMALAYA_CONFIG` when set
 
 ## Architecture
 
@@ -155,25 +156,24 @@ Individual account setup:
 - **Theme support** - Reads SolverForge colors.toml
 - **Zero dependencies** on async runtime (no tokio)
 
-## Stats
-
-- 35 files, 12518 lines of Rust
-- 81 tests, all passing
-- 4.6MB release binary
-- Zero warnings
-
 ## Troubleshooting
 
 ### No accounts working
-The test account always works:
+Check the local maildir test account first. If this fails, the backend/runtime is broken rather than remote auth:
 ```bash
-./solverforge-mail test
+cargo run -- --account test
 ```
 
+SolverForge Mail expects:
+- a Himalaya backend binary in `~/.local/share/solverforge/bin/solverforge-himalaya`, `~/.local/bin/solverforge-himalaya`, `PATH`, or `/opt/himalaya/target/release/himalaya`
+- a Himalaya config that `himalaya account list` can read, either via `HIMALAYA_CONFIG` or the default config path
+- only the backend binary for first-time OAuth bootstrap via `cargo run -- --setup`, `make setup`, or `./setup-accounts.sh`
+
 ### Authentication errors
-- **iCloud**: Need app-specific password, not Apple ID password
-- **Gmail/Outlook**: OAuth tokens expire, re-run `himalaya account configure`
-- **Password-based IMAP/SMTP**: Check keyring is unlocked (`kwalletd6` running)
+- **iCloud**: Need an app-specific password, not the Apple ID password. If your config uses `auth.cmd`, verify `~/.authinfo.gpg` decrypts in this session.
+- **Gmail/Outlook**: OAuth tokens expire. Re-run `himalaya account configure <account>`.
+- **Password-based IMAP/SMTP**: Verify the configured keyring secret names exist and your desktop secret service is unlocked.
+- **Local `test` account failing**: This is not an auth issue. Fix backend discovery, config loading, or local maildir paths first.
 
 ### Keyring issues
 ```bash
@@ -181,6 +181,12 @@ The test account always works:
 secret-tool store --label="test" service test user test
 # (enter any password)
 secret-tool lookup service test user test
+```
+
+### GPG-backed auth
+```bash
+# Check that the iCloud auth file decrypts in this session
+gpg -q --for-your-eyes-only -d ~/.authinfo.gpg | head
 ```
 
 ## Development
@@ -194,6 +200,9 @@ cargo test
 
 # Local CI-style validation
 make ci
+
+# Interactive setup wizard
+cargo run -- --setup
 
 # Run with specific account
 cargo run -- --account test
@@ -212,19 +221,18 @@ make ci
 ```
 solverforge-mail/
 ├── setup-accounts.sh         # Interactive account setup wizard
-├── setup-password-account.sh # Generic password-based IMAP/SMTP setup
-├── setup-icloud.sh           # iCloud app-specific password setup
-├── setup-oauth.sh            # Gmail/Outlook OAuth setup
 ├── src/
-│   ├── main.rs              # Entry point, terminal setup
+│   ├── main.rs              # Entry point, terminal setup, CLI modes
 │   ├── app.rs               # TEA state machine
+│   ├── setup.rs             # Interactive account setup wizard
 │   ├── worker.rs            # Background thread pool
 │   ├── event.rs             # Terminal event handling
 │   ├── keys.rs              # Keybinding definitions
 │   ├── theme.rs             # Color theme loader
 │   ├── himalaya/
 │   │   ├── client.rs        # Himalaya CLI wrapper
-│   │   ├── config.rs        # Binary discovery
+│   │   ├── config.rs        # Backend discovery and config hints
+│   │   ├── diagnostics.rs   # Shared error classification
 │   │   └── types.rs         # JSON types
 │   └── ui/
 │       ├── envelope_list.rs # Email list with relative dates

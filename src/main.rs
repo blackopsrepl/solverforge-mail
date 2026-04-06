@@ -1,22 +1,3 @@
-#![allow(dead_code)]
-
-mod app;
-mod compose;
-mod compose_editor;
-mod contact_edit;
-mod contacts;
-mod credentials;
-mod db;
-mod event;
-mod himalaya;
-mod identities;
-mod identity_edit;
-mod import;
-mod keys;
-mod theme;
-mod ui;
-mod worker;
-
 use std::io::{self, stdout};
 use std::panic;
 use std::time::Duration;
@@ -28,14 +9,25 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use ratatui::prelude::*;
-
-use app::App;
-use event::EventHandler;
+use solverforge_mail::app::App;
+use solverforge_mail::event::{Event, EventHandler};
+use solverforge_mail::{db, identities, import, setup, ui};
 
 fn main() -> Result<()> {
-    // ── Parse minimal CLI args ──────────────────────────────────────
     let args: Vec<String> = std::env::args().collect();
-    let account = parse_account_flag(&args);
+
+    if args.iter().any(|arg| arg == "--accounts") {
+        return setup::print_account_status();
+    }
+
+    let account = if args.iter().any(|arg| arg == "--setup") {
+        match setup::run_wizard()? {
+            Some(account) => Some(account),
+            None => return Ok(()),
+        }
+    } else {
+        parse_account_flag(&args)
+    };
 
     // ── Contact import (non-interactive, exits after import) ────────
     if let Some(path) = parse_import_flag(&args) {
@@ -84,10 +76,10 @@ fn run(
 
         // Handle next event
         match events.next()? {
-            event::Event::Key(key) => app.handle_key(key),
-            event::Event::Mouse(mouse) => app.handle_mouse(mouse),
-            event::Event::Tick => app.tick(),
-            event::Event::Resize(_, _) => {} // ratatui handles resize
+            Event::Key(key) => app.handle_key(key),
+            Event::Mouse(mouse) => app.handle_mouse(mouse),
+            Event::Tick => app.tick(),
+            Event::Resize(_, _) => {} // ratatui handles resize
         }
 
         // If app requested a shell-out (compose/reply/forward), do it
